@@ -55,11 +55,11 @@ In the following steps we will generate 2-of-3 threshold signing key and sign a 
      But keep in mind that it will be less efficient.
 
    Either of commands will produce binaries into `./target/release/examples/` folder.
-3. `cd ./target/release/examples/`
+3. `cd ./target/release/examples/` or `cd .\target\release\examples\`
 
 ### Start an SM server
 
-`./gg20_sm_manager`
+`./gg20_sm_manager` or `.\gg20_sm_manager.exe`
 
 That will start an HTTP server on `http://127.0.0.1:8000`. Other parties will use that server in order to communicate with
 each other. Note that communication channels are neither encrypted nor authenticated. In production, you must encrypt and
@@ -69,9 +69,12 @@ authenticate parties messages.
 
 Open 3 terminal tabs for each party. Run:
 
-1. `./gg20_keygen -t 1 -n 3 -i 1 --output local-share1.json`
-2. `./gg20_keygen -t 1 -n 3 -i 2 --output local-share2.json`
-3. `./gg20_keygen -t 1 -n 3 -i 3 --output local-share3.json`
+1. `./gg20_keygen -t 1 -n 3 -i 1 --output local-share1.json`  
+  or `.\gg20_keygen.exe -t 1 -n 3 -i 1 --output local-share1.json`
+2. `./gg20_keygen -t 1 -n 3 -i 2 --output local-share2.json`  
+or `.\gg20_keygen.exe -t 1 -n 3 -i 2 --output local-share2.json`
+3. `./gg20_keygen -t 1 -n 3 -i 3 --output local-share3.json`  
+or `.\gg20_keygen.exe -t 1 -n 3 -i 3 --output local-share3.json`
 
 Each command corresponds to one party. Once keygen is completed, you'll have 3 new files:
 `local-share1.json`, `local-share2.json`, `local-share3.json` corresponding to local secret
@@ -81,8 +84,10 @@ share of each party.
 
 Since we use 2-of-3 scheme (`t=1 n=3`), any two parties can sign a message. Run:
 
-1. `./gg20_signing -p 1,2 -d "hello" -l local-share1.json`
-2. `./gg20_signing -p 1,2 -d "hello" -l local-share2.json`
+1. `./gg20_signing -p 1,2 -d "hello" -l local-share1.json`  
+or `.\gg20_signing.exe -p 1,2 -d "hello" -l local-share1.json`
+2. `./gg20_signing -p 1,2 -d "hello" -l local-share2.json`  
+or `.\gg20_signing.exe -p 1,2 -d "hello" -l local-share2.json`
 
 Each party will produce a resulting signature. `-p 1,2` specifies indexes of parties
 who attends in signing (each party has an associated index given at keygen, see argument 
@@ -95,7 +100,8 @@ While previous steps show how to run keygen & signing on local computer, you act
 run each party on dedicated machine. To do this, you should ensure that parties can reach
 SM Server, and specify its address via command line argument, eg:
 
-`./gg20_keygen --address http://10.0.1.9:8000/ ...`
+`./gg20_keygen --address http://10.0.1.9:8000/ ...`  
+or `.\gg20_keygen --address http://10.0.1.9:8000/ ...`
 
 ## Run GG18 Demo
 
