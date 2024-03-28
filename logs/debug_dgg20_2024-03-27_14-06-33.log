@@ -1,0 +1,12 @@
+INFO [multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::party_i] u is:
+Secp256k1Scalar {
+    purpose: "random",
+    fe: Zeroizing(
+        Some(
+            SK(
+                SecretKey(5c0cfcab5f92883f889548d31038a1ed9f7a01b22219fe80f8f354063e2020a7),
+            ),
+        ),
+    ),
+}
+

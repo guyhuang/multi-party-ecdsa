@@ -16,6 +16,7 @@
     @license GPL-3.0+ <https://github.com/KZen-networks/multi-party-ecdsa/blob/master/LICENSE>
 */
 
+use core::fmt;
 use std::fmt::Debug;
 
 use centipede::juggling::proof_system::{Helgamalsegmented, Witness};
@@ -55,6 +56,12 @@ pub struct Parameters {
     pub share_count: u16, //n
 }
 
+impl fmt::Display for Parameters {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        todo!()
+    }
+}
+
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Keys<E: Curve = Secp256k1> {
     pub u_i: Scalar<E>,
@@ -67,6 +74,53 @@ pub struct Keys<E: Curve = Secp256k1> {
     pub h2: BigInt,
     pub xhi: BigInt,
     pub xhi_inv: BigInt,
+}
+
+impl fmt::Display for Keys {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, 
+r#"u_i:
+    {}
+y_i:
+    x:
+        {}
+    y:
+        {}
+dk:
+    p:
+        {}
+    q:
+        {}
+ek:
+    n:
+        {}
+    nn:
+        {}
+party_index:{},
+N_tilde:
+    {}
+h1:
+    {}
+h2:
+    {}
+xhi:
+    {}
+xhi_inv:
+    {}"#, 
+        self.u_i.to_bigint().to_hex(), 
+        self.y_i.x_coord().unwrap().to_hex(), 
+        self.y_i.y_coord().unwrap().to_hex(),
+        self.dk.p.to_hex(),
+        self.dk.q.to_hex(),
+        self.ek.n.to_hex(),
+        self.ek.nn.to_hex(),
+        self.party_index,
+        self.N_tilde.to_hex(),
+        self.h1.to_hex(),
+        self.h2.to_hex(),
+        self.xhi.to_hex(),
+        self.xhi_inv.to_hex())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -86,10 +140,74 @@ pub struct KeyGenBroadcastMessage1 {
     pub composite_dlog_proof_base_h2: CompositeDLogProof,
 }
 
+impl fmt::Display for KeyGenBroadcastMessage1 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut correct_key_proof = String::new();
+        for x in self.correct_key_proof.sigma_vec.iter(){
+            correct_key_proof.push_str(format!(r#"{},
+    "#, x.to_hex()).as_str());
+        }
+        write!(f, 
+r#"e(EncryptionKey):
+    n:
+        {}
+    nn:
+        {}
+dlog_statement(DLogStatement):
+    N:
+        {}
+    g:
+        {}
+    ni:
+        {}
+com:
+    {}
+correct_key_proof(NiCorrectKeyProof):
+    {}
+composite_dlog_proof_base_h1(CompositeDLogProof):
+    x:
+        {}
+    y:
+        {}
+composite_dlog_proof_base_h2(CompositeDLogProof):
+    x:
+        {}
+    y:
+        {}"#, 
+        self.e.n.to_hex(),
+        self.e.nn.to_hex(),
+        self.dlog_statement.N.to_hex(),
+        self.dlog_statement.g.to_hex(),
+        self.dlog_statement.ni.to_hex(),
+        self.com.to_hex(),
+        correct_key_proof,
+        self.composite_dlog_proof_base_h1.x.to_hex(),
+        self.composite_dlog_proof_base_h1.y.to_hex(),
+        self.composite_dlog_proof_base_h2.x.to_hex(),
+        self.composite_dlog_proof_base_h2.y.to_hex())
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct KeyGenDecommitMessage1 {
     pub blind_factor: BigInt,
     pub y_i: Point<Secp256k1>,
+}
+
+impl fmt::Display for KeyGenDecommitMessage1 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, 
+r#"blind_factor:
+    {}
+y_i(Point<Secp256k1>):
+    x:
+        {}
+    y:
+        {}"#,
+        self.blind_factor.to_hex(),
+        self.y_i.x_coord().unwrap().to_hex(),
+        self.y_i.y_coord().unwrap().to_hex())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -137,10 +255,22 @@ pub struct SignatureRecid {
 pub fn generate_h1_h2_N_tilde() -> (BigInt, BigInt, BigInt, BigInt, BigInt) {
     // note, should be safe primes:
     // let (ek_tilde, dk_tilde) = Paillier::keypair_safe_primes().keys();;
+    log::info!("-vv- generate_h1_h2_N_tilde -vv-");
+
     let (ek_tilde, dk_tilde) = Paillier::keypair().keys();
+    log::info!("create a new Paillier keypair ek_tilde(n, nn) and dk_tilde(p, q):");
+    log::info!("ek_tilde is:\nn:\n{}\nnn:\n{}", ek_tilde.n.to_hex(), ek_tilde.nn.to_hex());
+    log::info!("dk_tilde is:\np:\n{}\nq:\n{}", dk_tilde.p.to_hex(), dk_tilde.q.to_hex());
+
     let one = BigInt::one();
+    log::info!("one is:\n{}", one.to_hex());
+
     let phi = (&dk_tilde.p - &one) * (&dk_tilde.q - &one);
+    log::info!("phi(=(dk_tilde.p-1)*(dk_tilde.q-1)) is:\n{}", phi.to_hex());
+
     let h1 = BigInt::sample_below(&ek_tilde.n);
+    log::info!("h1(sample below ek_tilde.n) is:\n{}", h1.to_hex());
+
     let (mut xhi, mut xhi_inv) = loop {
         let xhi_ = BigInt::sample_below(&phi);
         match BigInt::mod_inv(&xhi_, &phi) {
@@ -148,20 +278,54 @@ pub fn generate_h1_h2_N_tilde() -> (BigInt, BigInt, BigInt, BigInt, BigInt) {
             None => continue,
         }
     };
-    let h2 = BigInt::mod_pow(&h1, &xhi, &ek_tilde.n);
-    xhi = BigInt::sub(&phi, &xhi);
-    xhi_inv = BigInt::sub(&phi, &xhi_inv);
+    log::info!("random sample xhi_ below phi, ensure xhi_inv exists.");
+    log::info!("xhi(sample below phi) is:\n{}", xhi.to_hex());
+    log::info!("xhi_inv(where xhi_inv*xhi = 1 mod phi) is:\n{}", xhi_inv.to_hex());
 
+    let h2 = BigInt::mod_pow(&h1, &xhi, &ek_tilde.n);
+    log::info!("h2(=h1^xhi mod ek_tilde.n) is:\n{}", h2.to_hex());
+
+    xhi = BigInt::sub(&phi, &xhi);
+    log::info!("xhi'(=phi - xhi) is:\n{}", xhi.to_hex());
+
+    xhi_inv = BigInt::sub(&phi, &xhi_inv);
+    log::info!("xhi_inv'(phi - xhi_inv) is:\n{}", xhi_inv.to_hex());
+
+    log::info!("-^^- generate_h1_h2_N_tilde -^^-");
+    log::info!("-^^- returns (ek_tilde.n, h1, h2, xhi, xhi_inv) -^^-");
     (ek_tilde.n, h1, h2, xhi, xhi_inv)
 }
 
 impl Keys {
     pub fn create(index: usize) -> Self {
+        log::info!("-vv- Keys.create -vv-");
+
         let u = Scalar::<Secp256k1>::random();
+        log::info!("u(random scalar) is:\n{:#?}\n", u);
+
         let y = Point::generator() * &u;
+        log::info!("y(=u*G, point on curve) is:\n{:#?}\n", y);
+
         let (ek, dk) = Paillier::keypair().keys();
+        log::info!("Paillier keypair:random sample 1024 bits prime p & q, ek.n=p*q, ek.nn=ek.n*ek.n:");
+        log::info!("ek(Paillier keypair EncryptionKey) is:");
+        log::info!("\tek-n is:\n{:#?}\n", ek.n.to_hex());
+        log::info!("\tek-nn is:\n{:#?}\n", ek.n.to_hex());
+        
+        log::info!("dk(Paillier keypair decryptionKey) is:");
+        log::info!("\tdk-p is:\n{:#?}\n", dk.p.to_hex());
+        log::info!("\tdk-q is:\n{:#?}\n", dk.q.to_hex());
+
         let (N_tilde, h1, h2, xhi, xhi_inv) = generate_h1_h2_N_tilde();
 
+        log::info!("N_tilde is:\n{:#?}\n", N_tilde.to_hex());
+        log::info!("h1 is:\n{:#?}\n", h1.to_hex());
+        log::info!("h2 is:\n{:#?}\n", h2.to_hex());
+        log::info!("xhi is:\n{:#?}\n", xhi.to_hex());
+        log::info!("xhi_inv is:\n{:#?}\n", xhi_inv.to_hex());
+        
+        log::info!("-^^- Keys.create -^^-");
+        log::info!("-^^- returns (u_i=u, y_i=y, dk, ek, party_index, N_tilde, h1, h2, xhi, xhi_inv) -^^-");
         Self {
             u_i: u,
             y_i: y,
@@ -219,29 +383,51 @@ impl Keys {
     pub fn phase1_broadcast_phase3_proof_of_correct_key_proof_of_correct_h1h2(
         &self,
     ) -> (KeyGenBroadcastMessage1, KeyGenDecommitMessage1) {
+        log::info!("-vv-Keys::phase1_broadcast_phase3_proof_of_correct_key_proof_of_correct_h1h2-vv-");
+
         let blind_factor = BigInt::sample(SECURITY);
+        log::info!("blind_factor(256bits sample) is:\n{}", blind_factor.to_hex());
+
         let correct_key_proof = NiCorrectKeyProof::proof(&self.dk, None);
+        log::info!("correct_key_proof is:\n{:#?}", correct_key_proof);
+        log::info!("This protocol is based on the NIZK protocol in https://eprint.iacr.org/2018/057.pdf, for parameters = e = N, m2 = 11, alpha = 6370 see https://eprint.iacr.org/2018/987.pdf 6.2.3 for full details.");
 
         let dlog_statement_base_h1 = DLogStatement {
             N: self.N_tilde.clone(),
             g: self.h1.clone(),
             ni: self.h2.clone(),
         };
+        log::info!("dlog_statement_base_h1.N(=N_tilde) is:\n{}", dlog_statement_base_h1.N.to_hex());
+        log::info!("dlog_statement_base_h1.g(=h1) is:\n{}", dlog_statement_base_h1.g.to_hex());
+        log::info!("dlog_statement_base_h1.ni(=h2) is:\n{}", dlog_statement_base_h1.ni.to_hex());
+
         let dlog_statement_base_h2 = DLogStatement {
             N: self.N_tilde.clone(),
             g: self.h2.clone(),
             ni: self.h1.clone(),
         };
+        log::info!("dlog_statement_base_h2.N(=N_tilde) is:\n{}", dlog_statement_base_h2.N.to_hex());
+        log::info!("dlog_statement_base_h2.g(=h2) is:\n{}", dlog_statement_base_h2.g.to_hex());
+        log::info!("dlog_statement_base_h2.ni(=h1) is:\n{}", dlog_statement_base_h2.ni.to_hex());
 
         let composite_dlog_proof_base_h1 =
             CompositeDLogProof::prove(&dlog_statement_base_h1, &self.xhi);
+        log::info!("composite_dlog_proof_base_h1(CompositeDLogProof of dlog_statement_base_h1)");
+        log::info!("composite_dlog_proof_base_h1.x is:\n{}", composite_dlog_proof_base_h1.x.to_hex());
+        log::info!("composite_dlog_proof_base_h1.y is:\n{}", composite_dlog_proof_base_h1.y.to_hex());
+
         let composite_dlog_proof_base_h2 =
             CompositeDLogProof::prove(&dlog_statement_base_h2, &self.xhi_inv);
+        log::info!("composite_dlog_proof_base_h2(CompositeDLogProof of dlog_statement_base_h2)");
+        log::info!("composite_dlog_proof_base_h2.x is:\n{}", composite_dlog_proof_base_h2.x.to_hex());
+        log::info!("composite_dlog_proof_base_h2.y is:\n{}", composite_dlog_proof_base_h2.y.to_hex());
 
         let com = HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
             &BigInt::from_bytes(self.y_i.to_bytes(true).as_ref()),
             &blind_factor,
         );
+        log::info!("com(=hash of (y_i(compressed) | blind_factor)) is:\n{}", com.to_hex());
+
         let bcm1 = KeyGenBroadcastMessage1 {
             e: self.ek.clone(),
             dlog_statement: dlog_statement_base_h1,
@@ -250,10 +436,31 @@ impl Keys {
             composite_dlog_proof_base_h1,
             composite_dlog_proof_base_h2,
         };
+        log::info!("bcm1:\n{}", bcm1);
+        // log::info!("bcm1.e(ek).n is:\n{}", bcm1.e.n.to_hex());
+        // log::info!("bcm1.e(ek).nn is:\n{}", bcm1.e.nn.to_hex());
+        // log::info!("bcm1.dlog_statement(dlog_statement_base_h1).N is:\n{}", bcm1.dlog_statement.N.to_hex());
+        // log::info!("bcm1.dlog_statement(dlog_statement_base_h1).g is:\n{}", bcm1.dlog_statement.g.to_hex());
+        // log::info!("bcm1.dlog_statement(dlog_statement_base_h1).ni is:\n{}", bcm1.dlog_statement.ni.to_hex());
+        // log::info!("bcm1.com is:\n{}", bcm1.com.to_hex());
+        // log::info!("bcm1.correct_key_proof is:\n{:#?}", bcm1.correct_key_proof);
+        // log::info!("bcm1.composite_dlog_proof_base_h1.x is:\n{}", bcm1.composite_dlog_proof_base_h1.x.to_hex());
+        // log::info!("bcm1.composite_dlog_proof_base_h1.y is:\n{}", bcm1.composite_dlog_proof_base_h1.y.to_hex());
+        // log::info!("bcm1.composite_dlog_proof_base_h2.x is:\n{}", bcm1.composite_dlog_proof_base_h2.x.to_hex());
+        // log::info!("bcm1.composite_dlog_proof_base_h2.y is:\n{}", bcm1.composite_dlog_proof_base_h2.y.to_hex());
+
         let decom1 = KeyGenDecommitMessage1 {
             blind_factor,
             y_i: self.y_i.clone(),
         };
+        log::info!("decom1:\n{}", decom1);
+
+        // log::info!("decom1.blind_factor is:\n{}", decom1.blind_factor.to_hex());
+        // log::info!("decom1.y_i is:\n{:#?}", decom1.y_i);
+
+        log::info!("-^^-Keys::phase1_broadcast_phase3_proof_of_correct_key_proof_of_correct_h1h2-^^-");
+        log::info!("-^^_ returns  (bcm1, decom1) --^^--");
+
         (bcm1, decom1)
     }
 

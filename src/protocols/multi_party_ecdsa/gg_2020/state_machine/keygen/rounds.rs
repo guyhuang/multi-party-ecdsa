@@ -1,3 +1,5 @@
+use std::borrow::Borrow;
+
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::{secp256_k1::Secp256k1, Curve, Point, Scalar};
@@ -28,15 +30,22 @@ impl Round0 {
     where
         O: Push<Msg<gg_2020::party_i::KeyGenBroadcastMessage1>>,
     {
+        log::info!("====Round 0 start=====");
         let party_keys = Keys::create(self.party_i as usize);
+        log::info!("party_keys:\n{}", party_keys);
+
         let (bc1, decom1) =
             party_keys.phase1_broadcast_phase3_proof_of_correct_key_proof_of_correct_h1h2();
+        log::info!("bc1:\n{}", bc1);
+        log::info!("decom1:\n{}", decom1);
 
         output.push(Msg {
             sender: self.party_i,
             receiver: None,
             body: bc1.clone(),
         });
+        
+        log::info!("====Round 0 over, output bc1=====");
         Ok(Round1 {
             keys: party_keys,
             bc1,
@@ -69,11 +78,14 @@ impl Round1 {
     where
         O: Push<Msg<gg_2020::party_i::KeyGenDecommitMessage1>>,
     {
+        log::info!("====Round 1 start=====");
         output.push(Msg {
             sender: self.party_i,
             receiver: None,
             body: self.decom1.clone(),
         });
+        log::info!("input before insert bc1:\n{:#?}", input);
+        log::info!("====Round 1 over, output decom1=====");
         Ok(Round2 {
             keys: self.keys,
             received_comm: input.into_vec_including_me(self.bc1),
@@ -111,11 +123,14 @@ impl Round2 {
     where
         O: Push<Msg<(VerifiableSS<Secp256k1>, Scalar<Secp256k1>)>>,
     {
+        log::info!("====Round 2 start=====");
+        log::info!("input:\n{:#?}", input);
         let params = gg_2020::party_i::Parameters {
             threshold: self.t,
             share_count: self.n,
         };
         let received_decom = input.into_vec_including_me(self.decom);
+        log::info!("received_decom:\n{:#?}", received_decom);
 
         let vss_result = self
             .keys
@@ -137,6 +152,8 @@ impl Round2 {
                 body: (vss_result.0.clone(), share.clone()),
             })
         }
+
+        log::info!("====Round 2 over, output decom1=====");
 
         Ok(Round3 {
             keys: self.keys,

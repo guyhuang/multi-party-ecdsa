@@ -8,6 +8,7 @@ use round_based::async_runtime::AsyncProtocol;
 
 mod gg20_sm_client;
 use gg20_sm_client::join_computation;
+use flexi_logger::{FileSpec, Logger, WriteMode};
 
 #[derive(Debug, StructOpt)]
 struct Cli {
@@ -28,10 +29,34 @@ struct Cli {
 
 #[tokio::main]
 async fn main() -> Result<()> {
+
     let args: Cli = Cli::from_args();
+    // let args: Cli = Cli{
+    //     address : surf::Url::parse("http://tag.racsee.com:9008").unwrap(),
+    //     index : 1,
+    //     threshold : 1,
+    //     number_of_parties : 3,
+    //     output : String::from("local-share1.json").into(),
+    //     room : String::from("default-keygen"),
+    // };
+    run(args).await
+}
+
+async fn run(args:Cli) -> Result<()>{
+    let _logger = Logger::try_with_str("info, my::critical::module=trace")?
+    .log_to_file(FileSpec::default()
+        .directory("logs")
+        .basename("debug")
+        .discriminant("dgg20"))
+    .print_message()
+    .write_mode(WriteMode::Direct)
+    .start()?;
+    log::info!("#######Start a new keygen######");
+    log::info!("i = {}, t = {}, n = {}", args.index, args.threshold, args.number_of_parties);
     let mut output_file = tokio::fs::OpenOptions::new()
         .write(true)
-        .create_new(true)
+        .truncate(true)
+        //.create_new(true)
         .open(args.output)
         .await
         .context("cannot create output file")?;
@@ -55,4 +80,46 @@ async fn main() -> Result<()> {
         .context("save output to file")?;
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+
+    #[actix_rt::test]
+    async fn key_gen_1(){
+        let args: Cli = Cli{
+            address : surf::Url::parse("http://localhost:8000/").unwrap(),
+            index : 1,
+            threshold : 1,
+            number_of_parties : 3,
+            output : String::from("local-share1.json").into(),
+            room : String::from("default-keygen"),
+        };
+        run(args).await.unwrap()
+    }
+    #[actix_rt::test]
+    async fn key_gen_2(){
+        let args: Cli = Cli{
+            address : surf::Url::parse("http://localhost:8000/").unwrap(),
+            index : 2,
+            threshold : 1,
+            number_of_parties : 3,
+            output : String::from("local-share2.json").into(),
+            room : String::from("default-keygen"),
+        };
+        run(args).await.unwrap()
+    }
+    #[actix_rt::test]
+    async fn key_gen_3(){
+        let args: Cli = Cli{
+            address : surf::Url::parse("http://localhost:8000/").unwrap(),
+            index : 3,
+            threshold : 1,
+            number_of_parties : 3,
+            output : String::from("local-share1.json").into(),
+            room : String::from("default-keygen"),
+        };
+        run(args).await.unwrap()
+    }
 }
