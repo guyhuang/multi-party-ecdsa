@@ -99,17 +99,21 @@ impl Keygen {
         let next_state: R;
         let try_again: bool = match replace(&mut self.round, R::Gone) {
             R::Round0(round) if !round.is_expensive() || may_block => {
+                log::info!("begin to proceed round 0");
                 next_state = round
                     .proceed(self.gmap_queue(M::Round1))
                     .map(R::Round1)
                     .map_err(Error::ProceedRound)?;
+                log::info!("finished to proceed round 0");
                 true
             }
             s @ R::Round0(_) => {
+                log::info!("begin to proceed R of round 0");
                 next_state = s;
                 false
             }
             R::Round1(round) if !store1_wants_more && (!round.is_expensive() || may_block) => {
+                log::info!("begin to proceed round 1");
                 let store = self.msgs1.take().ok_or(InternalError::StoreGone)?;
                 let msgs = store
                     .finish()
@@ -118,13 +122,17 @@ impl Keygen {
                     .proceed(msgs, self.gmap_queue(M::Round2))
                     .map(R::Round2)
                     .map_err(Error::ProceedRound)?;
+                log::info!("finished to proceed round 1");
                 true
             }
             s @ R::Round1(_) => {
+                log::info!("begin to proceed R of round 1");
                 next_state = s;
+                log::info!("finished to proceed R of round 1");
                 false
             }
             R::Round2(round) if !store2_wants_more && (!round.is_expensive() || may_block) => {
+                log::info!("begin to proceed round 2");
                 let store = self.msgs2.take().ok_or(InternalError::StoreGone)?;
                 let msgs = store
                     .finish()
@@ -133,13 +141,17 @@ impl Keygen {
                     .proceed(msgs, self.gmap_queue(M::Round3))
                     .map(R::Round3)
                     .map_err(Error::ProceedRound)?;
+                log::info!("finished to proceed round 2");
                 true
             }
             s @ R::Round2(_) => {
+                log::info!("begin to proceed R of round 2");
                 next_state = s;
+                log::info!("finished to proceed R of round 2");
                 false
             }
             R::Round3(round) if !store3_wants_more && (!round.is_expensive() || may_block) => {
+                log::info!("begin to proceed round 3");
                 let store = self.msgs3.take().ok_or(InternalError::StoreGone)?;
                 let msgs = store
                     .finish()
@@ -148,13 +160,17 @@ impl Keygen {
                     .proceed(msgs, self.gmap_queue(M::Round4))
                     .map(R::Round4)
                     .map_err(Error::ProceedRound)?;
+                log::info!("finished to proceed round 3");
                 true
             }
             s @ R::Round3(_) => {
+                log::info!("begin to proceed R of round 3");
                 next_state = s;
+                log::info!("finished to proceed R of round 3");
                 false
             }
             R::Round4(round) if !store4_wants_more && (!round.is_expensive() || may_block) => {
+                log::info!("begin to proceed round 4");
                 let store = self.msgs4.take().ok_or(InternalError::StoreGone)?;
                 let msgs = store
                     .finish()
@@ -163,14 +179,19 @@ impl Keygen {
                     .proceed(msgs)
                     .map(R::Final)
                     .map_err(Error::ProceedRound)?;
+                log::info!("finished to proceed round 4");
                 true
             }
             s @ R::Round4(_) => {
+                log::info!("begin to proceed R of round 4");
                 next_state = s;
+                log::info!("finished to proceed R of round 4");
                 false
             }
             s @ R::Final(_) | s @ R::Gone => {
+                log::info!("begin to proceed R of round final");
                 next_state = s;
+                log::info!("finished to proceed R of round final");
                 false
             }
         };

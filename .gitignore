@@ -15,3 +15,7 @@ Cargo.lock
 keys*.store
 signature
 
+*.log
+logs/**.log
+
+local-share**.json

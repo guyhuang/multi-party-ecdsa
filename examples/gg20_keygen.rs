@@ -50,6 +50,7 @@ async fn run(args:Cli) -> Result<()>{
         .discriminant("dgg20"))
     .print_message()
     .write_mode(WriteMode::Direct)
+    .format(flexi_logger::with_thread)
     .start()?;
     log::info!("#######Start a new keygen######");
     log::info!("i = {}, t = {}, n = {}", args.index, args.threshold, args.number_of_parties);
@@ -79,6 +80,7 @@ async fn run(args:Cli) -> Result<()>{
         .await
         .context("save output to file")?;
 
+    log::info!("#######Finished a new keygen######");
     Ok(())
 }
 

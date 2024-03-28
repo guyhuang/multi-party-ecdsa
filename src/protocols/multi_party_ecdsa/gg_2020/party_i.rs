@@ -30,6 +30,7 @@ use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::{secp256_k1::Secp256k1, Curve, Point, Scalar};
 use curv::BigInt;
 use sha2::Sha256;
+use round_based::containers::BroadcastMsgs;
 
 use crate::Error::{self, InvalidSig, Phase5BadSum, Phase6Error};
 use paillier::{
@@ -58,16 +59,16 @@ pub struct Parameters {
 
 impl fmt::Display for Parameters {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        todo!()
+        write!(f, "threshold={}, share_count={}.", self.threshold, self.share_count)
     }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Keys<E: Curve = Secp256k1> {
-    pub u_i: Scalar<E>,
-    pub y_i: Point<E>,
-    pub dk: DecryptionKey,
-    pub ek: EncryptionKey,
+    pub u_i: Scalar<E>, // random scalar ui
+    pub y_i: Point<E>, // Point on curve Ui = ui*G
+    pub dk: DecryptionKey, // Paillier DecryptionKey p & q
+    pub ek: EncryptionKey, // Paillier EncryptionKey n=p*q & N=n*n
     pub party_index: usize,
     pub N_tilde: BigInt,
     pub h1: BigInt,
@@ -140,6 +141,27 @@ pub struct KeyGenBroadcastMessage1 {
     pub composite_dlog_proof_base_h2: CompositeDLogProof,
 }
 
+impl KeyGenBroadcastMessage1{
+    pub fn Display_correct_key_proof(&self) -> String {
+        let mut correct_key_proof = String::new();
+        for x in self.correct_key_proof.sigma_vec.iter(){
+            correct_key_proof.push_str(format!(r#"{},
+    "#, x.to_hex()).as_str());
+        }
+        correct_key_proof
+    }
+}
+
+pub fn Display_NiCorrectKeyProof(proof:&NiCorrectKeyProof) -> String{
+    let mut ret = String::new();
+    for x in proof.sigma_vec.iter(){
+        ret.push_str(format!(r#"{},
+    "#, x.to_hex()).as_str());
+    }
+
+    ret
+}
+
 impl fmt::Display for KeyGenBroadcastMessage1 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let mut correct_key_proof = String::new();
@@ -189,9 +211,10 @@ composite_dlog_proof_base_h2(CompositeDLogProof):
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct KeyGenDecommitMessage1 {
-    pub blind_factor: BigInt,
-    pub y_i: Point<Secp256k1>,
+pub struct KeyGenDecommitMessage1 { 
+    pub blind_factor: BigInt, // 随机因子
+    /// Ui = u1*G
+    pub y_i: Point<Secp256k1>, 
 }
 
 impl fmt::Display for KeyGenDecommitMessage1 {
@@ -216,6 +239,22 @@ pub struct SharedKeys {
     pub x_i: Scalar<Secp256k1>,
 }
 
+impl fmt::Display for SharedKeys {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, 
+r#"y(Point<Secp256k1>):
+    x:
+        {}
+    y:
+        {}
+x_i(Scalar<Secp256k1>):
+    {}"#,
+        self.y.x_coord().unwrap().to_hex(),
+        self.y.y_coord().unwrap().to_hex(),
+        self.x_i.to_bigint().to_hex())
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignKeys {
     pub w_i: Scalar<Secp256k1>,
@@ -223,6 +262,35 @@ pub struct SignKeys {
     pub k_i: Scalar<Secp256k1>,
     pub gamma_i: Scalar<Secp256k1>,
     pub g_gamma_i: Point<Secp256k1>,
+}
+
+impl fmt::Display for SignKeys {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, 
+r#"w_i(Scalar<Secp256k1>):
+    {}
+g_w_i(Point<Secp256k1>):
+    x:
+        {}
+    y:
+        {}
+k_i(Scalar<Secp256k1>):
+    {}
+gamma_i(Scalar<Secp256k1>):
+    {}
+g_gamma_i(Point<Secp256k1>):
+    x:
+        {}
+    y:
+        {}"#,
+        self.w_i.to_bigint().to_hex(),
+        self.g_w_i.x_coord().unwrap().to_hex(),
+        self.g_w_i.y_coord().unwrap().to_hex(),
+        self.k_i.to_bigint().to_hex(),
+        self.gamma_i.to_bigint().to_hex(),
+        self.g_gamma_i.x_coord().unwrap().to_hex(),
+        self.g_gamma_i.y_coord().unwrap().to_hex())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -300,21 +368,21 @@ impl Keys {
     pub fn create(index: usize) -> Self {
         log::info!("-vv- Keys.create -vv-");
 
-        let u = Scalar::<Secp256k1>::random();
+        let u = Scalar::<Secp256k1>::random(); // 文档u1
         log::info!("u(random scalar) is:\n{:#?}\n", u);
 
-        let y = Point::generator() * &u;
+        let y = Point::generator() * &u; // 文档U1
         log::info!("y(=u*G, point on curve) is:\n{:#?}\n", y);
 
         let (ek, dk) = Paillier::keypair().keys();
         log::info!("Paillier keypair:random sample 1024 bits prime p & q, ek.n=p*q, ek.nn=ek.n*ek.n:");
         log::info!("ek(Paillier keypair EncryptionKey) is:");
         log::info!("\tek-n is:\n{:#?}\n", ek.n.to_hex());
-        log::info!("\tek-nn is:\n{:#?}\n", ek.n.to_hex());
+        log::info!("\tek-nn is:\n{:#?}\n", ek.n.to_hex()); // 文档N1
         
         log::info!("dk(Paillier keypair decryptionKey) is:");
-        log::info!("\tdk-p is:\n{:#?}\n", dk.p.to_hex());
-        log::info!("\tdk-q is:\n{:#?}\n", dk.q.to_hex());
+        log::info!("\tdk-p is:\n{:#?}\n", dk.p.to_hex()); // 文档p1
+        log::info!("\tdk-q is:\n{:#?}\n", dk.q.to_hex()); // 文档q1
 
         let (N_tilde, h1, h2, xhi, xhi_inv) = generate_h1_h2_N_tilde();
 
@@ -389,7 +457,7 @@ impl Keys {
         log::info!("blind_factor(256bits sample) is:\n{}", blind_factor.to_hex());
 
         let correct_key_proof = NiCorrectKeyProof::proof(&self.dk, None);
-        log::info!("correct_key_proof is:\n{:#?}", correct_key_proof);
+        log::info!("correct_key_proof is:\n\t{}", Display_NiCorrectKeyProof(&correct_key_proof));
         log::info!("This protocol is based on the NIZK protocol in https://eprint.iacr.org/2018/057.pdf, for parameters = e = N, m2 = 11, alpha = 6370 see https://eprint.iacr.org/2018/987.pdf 6.2.3 for full details.");
 
         let dlog_statement_base_h1 = DLogStatement {
@@ -470,39 +538,104 @@ impl Keys {
         decom_vec: &[KeyGenDecommitMessage1],
         bc1_vec: &[KeyGenBroadcastMessage1],
     ) -> Result<(VerifiableSS<Secp256k1>, Vec<Scalar<Secp256k1>>, usize), ErrorType> {
+        log::info!("-vv- Keys::phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute -vv-");
+        log::info!("params:\n{}", params);
+        log::info!("decom_vec len:\n{}", decom_vec.len());
+        log::info!("decom_vec[0]:\n{}", decom_vec[0]);
+        log::info!("bc1_vec len:\n{}", bc1_vec.len());
+        log::info!("bc1_vec[0]:\n{}", bc1_vec[0]);
+
         let mut bad_actors_vec = Vec::new();
         // test length:
+        log::info!("Test length of decom_vec = share_count && bc1_vec = share_count");
         assert_eq!(decom_vec.len(), usize::from(params.share_count));
         assert_eq!(bc1_vec.len(), usize::from(params.share_count));
+
         // test paillier correct key, h1,h2 correct generation and test decommitments
+        log::info!("test paillier correct key, h1,h2 correct generation and test decommitments");
         let correct_key_correct_decom_all = (0..bc1_vec.len())
             .map(|i| {
+                log::info!("test index = {}:", i);
                 let dlog_statement_base_h2 = DLogStatement {
                     N: bc1_vec[i].dlog_statement.N.clone(),
                     g: bc1_vec[i].dlog_statement.ni.clone(),
                     ni: bc1_vec[i].dlog_statement.g.clone(),
                 };
-                let test_res =
-                    HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
-                        &BigInt::from_bytes(&decom_vec[i].y_i.to_bytes(true)),
-                        &decom_vec[i].blind_factor,
-                    ) == bc1_vec[i].com
-                        && bc1_vec[i]
-                            .correct_key_proof
-                            .verify(&bc1_vec[i].e, zk_paillier::zkproofs::SALT_STRING)
-                            .is_ok()
-                        && bc1_vec[i].e.n.bit_length() >= PAILLIER_MIN_BIT_LENGTH
-                        && bc1_vec[i].e.n.bit_length() <= PAILLIER_MAX_BIT_LENGTH
-                        && bc1_vec[i].dlog_statement.N.bit_length() >= PAILLIER_MIN_BIT_LENGTH
-                        && bc1_vec[i].dlog_statement.N.bit_length() <= PAILLIER_MAX_BIT_LENGTH
-                        && bc1_vec[i]
-                            .composite_dlog_proof_base_h1
-                            .verify(&bc1_vec[i].dlog_statement)
-                            .is_ok()
-                        && bc1_vec[i]
-                            .composite_dlog_proof_base_h2
-                            .verify(&dlog_statement_base_h2)
-                            .is_ok();
+                log::info!("dlog_statement_base_h2(bc1_vec[i]) is:\n\tN:\n{}\n\tg:\n{}\n\tni:\n{}", dlog_statement_base_h2.N.to_hex(), dlog_statement_base_h2.g.to_hex(), dlog_statement_base_h2.ni.to_hex());
+                let hash1 = HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
+                    &BigInt::from_bytes(&decom_vec[i].y_i.to_bytes(true)),
+                    &decom_vec[i].blind_factor,
+                );
+                log::info!("Sha256 of (decom_vec[i].y_i || decom_vec[i].blind_factor) is:\n{}", hash1.to_hex());
+                log::info!("bc1_vec[i].com is:\n{}", bc1_vec[i].com.to_hex());
+                let bool1 = hash1 == bc1_vec[i].com;
+                log::info!("test-1(hash of decom and bc.com should equal) is {}", bool1);
+
+                let bool2 = bc1_vec[i]
+                    .correct_key_proof
+                    .verify(&bc1_vec[i].e, zk_paillier::zkproofs::SALT_STRING)
+                    .is_ok();
+                log::info!("bc1_vec[i].correct_key_proof is:\n{}", bc1_vec[i].Display_correct_key_proof());
+                log::info!("test-2(bc1_vec[i].correct_key_proof.verify result) is {}", bool2);
+
+                let bool3 = bc1_vec[i].e.n.bit_length() >= PAILLIER_MIN_BIT_LENGTH;
+                log::info!("test-3(bc1_vec[i].e.n.bit_length() >= PAILLIER_MIN_BIT_LENGTH verify result) is {}, where length is {}, should bigger than {}", bool3, bc1_vec[i].e.n.bit_length(), PAILLIER_MIN_BIT_LENGTH);
+
+                let bool4 = bc1_vec[i].e.n.bit_length() <= PAILLIER_MAX_BIT_LENGTH;
+                log::info!("test-4(bc1_vec[i].e.n.bit_length() <= PAILLIER_MAX_BIT_LENGTH verify result) is {}, where length is {}, should less than {}", bool4, bc1_vec[i].e.n.bit_length(), PAILLIER_MAX_BIT_LENGTH);
+
+                let bool5 = bc1_vec[i].dlog_statement.N.bit_length() >= PAILLIER_MIN_BIT_LENGTH;
+                log::info!("test-5(bc1_vec[i].dlog_statement.N.bit_length() >= PAILLIER_MIN_BIT_LENGTH) is {}, where length is {}, should bigger than {}", bool5, bc1_vec[i].dlog_statement.N.bit_length(), PAILLIER_MIN_BIT_LENGTH);
+
+                let bool6 = bc1_vec[i].dlog_statement.N.bit_length() <= PAILLIER_MAX_BIT_LENGTH;
+                log::info!("test-6(bc1_vec[i].dlog_statement.N.bit_length() <= PAILLIER_MAX_BIT_LENGTH) is {}, where length is {}, should less than {}", bool6, bc1_vec[i].dlog_statement.N.bit_length(), PAILLIER_MAX_BIT_LENGTH);
+
+                //CompositeDLogProof: x,y(point on curve)
+                // verify1: statement.N > 2^128; 
+                // verify2: gcd(statement.g, statement.N)=1; 
+                // verify3: gcd(statement.ni, statement.N)=1; 
+                // let e = hash(x | g | N | ni);
+                // let ni_e = ni^e mod N;\n
+                // let g_y = g^y mod N;\n
+                // let g_y_ni_e = g_y * ni_e mod N;\n
+                // verify4: x == g_y_ni_e;
+                let bool7 = bc1_vec[i]
+                    .composite_dlog_proof_base_h1
+                    .verify(&bc1_vec[i].dlog_statement)
+                    .is_ok();
+                log::info!("test-7(composite_dlog_proof_base_h1.verify) is {}", bool7);
+                log::info!("CompositeDLogProof: x,y(point on curve);\nverify1: statement.N > 2^128;\nverify2: gcd(statement.g, statement.N)=1;\nverify3: gcd(statement.ni, statement.N)=1;\nlet e = hash(x | g | N | ni);\nlet ni_e = ni^e mod N;\nlet g_y = g^y mod N;\nlet g_y_ni_e = g_y * ni_e mod N;\nverify4: x == g_y_ni_e;");
+
+                let bool8 = bc1_vec[i]
+                    .composite_dlog_proof_base_h2
+                    .verify(&dlog_statement_base_h2)
+                    .is_ok();
+                log::info!("test-8(composite_dlog_proof_base_h2.verify) is {}", bool8);
+
+                let test_res = bool1 && bool2 && bool3 && bool4 && bool5 && bool6 && bool7 && bool8;
+
+                log::info!("test index = {}, result = {}:", i, test_res);
+                // let test_res =
+                //     HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
+                //         &BigInt::from_bytes(&decom_vec[i].y_i.to_bytes(true)),
+                //         &decom_vec[i].blind_factor,
+                //     ) == bc1_vec[i].com
+                //         && bc1_vec[i]
+                //             .correct_key_proof
+                //             .verify(&bc1_vec[i].e, zk_paillier::zkproofs::SALT_STRING)
+                //             .is_ok()
+                //         && bc1_vec[i].e.n.bit_length() >= PAILLIER_MIN_BIT_LENGTH
+                //         && bc1_vec[i].e.n.bit_length() <= PAILLIER_MAX_BIT_LENGTH
+                //         && bc1_vec[i].dlog_statement.N.bit_length() >= PAILLIER_MIN_BIT_LENGTH
+                //         && bc1_vec[i].dlog_statement.N.bit_length() <= PAILLIER_MAX_BIT_LENGTH
+                //         && bc1_vec[i]
+                //             .composite_dlog_proof_base_h1
+                //             .verify(&bc1_vec[i].dlog_statement)
+                //             .is_ok()
+                //         && bc1_vec[i]
+                //             .composite_dlog_proof_base_h2
+                //             .verify(&dlog_statement_base_h2)
+                //             .is_ok();
                 if !test_res {
                     bad_actors_vec.push(i);
                     false
@@ -517,8 +650,15 @@ impl Keys {
             bad_actors: bad_actors_vec,
         };
 
+        //guy TODO: 需要底层实现
         let (vss_scheme, secret_shares) =
             VerifiableSS::share(params.threshold, params.share_count, &self.u_i);
+        log::info!("VerifiableSS::share, input t={}, n={}, secret(u)={}", params.threshold, params.share_count, self.u_i.to_bigint().to_hex());
+        log::info!("vss_scheme is:\n{:#?}", vss_scheme);
+        log::info!("secret_shares is:\n{:#?}", secret_shares);
+
+        log::info!("-^^- Keys::phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute -^^-");
+        log::info!("returns vss_scheme, secret_shares, party_index");
         if correct_key_correct_decom_all {
             Ok((vss_scheme, secret_shares.to_vec(), self.party_index))
         } else {
@@ -534,17 +674,26 @@ impl Keys {
         vss_scheme_vec: &[VerifiableSS<Secp256k1>],
         index: usize,
     ) -> Result<(SharedKeys, DLogProof<Secp256k1, Sha256>), ErrorType> {
+        log::info!("--vv-- Keys.phase2_verify_vss_construct_keypair_phase3_pok_dlog --vv--");
         let mut bad_actors_vec = Vec::new();
+        
+        log::info!("verify y_vec.len() == secret_shares_vec.len() == vss_scheme_vec.len() == params.share_count = {}", usize::from(params.share_count));
         assert_eq!(y_vec.len(), usize::from(params.share_count));
         assert_eq!(secret_shares_vec.len(), usize::from(params.share_count));
         assert_eq!(vss_scheme_vec.len(), usize::from(params.share_count));
 
+        log::info!("Loop for y_vec,secret_shares_vec,vss_scheme_vec to validate share.");
         let correct_ss_verify = (0..y_vec.len())
             .map(|i| {
+                log::info!("validate_share for {}", i);
+                log::info!("vss_scheme_vec[{}] is:\n{:#?}", i, vss_scheme_vec[i]);
+                log::info!("secret_shares_vec[{}] is:\n{:#?}", i, secret_shares_vec[i]);
+                log::info!("index(self.party_i) is:{}", index);
                 let res = vss_scheme_vec[i]
                     .validate_share(&secret_shares_vec[i], index.try_into().unwrap())
                     .is_ok()
                     && vss_scheme_vec[i].commitments[0] == y_vec[i];
+                log::info!("validate_share result is {}", res);
                 if !res {
                     bad_actors_vec.push(i);
                     false
@@ -553,6 +702,7 @@ impl Keys {
                 }
             })
             .all(|x| x);
+        log::info!("Finished loop to validate share, result is {}.", correct_ss_verify);
 
         let err_type = ErrorType {
             error_type: "invalid vss".to_string(),
@@ -560,13 +710,23 @@ impl Keys {
         };
 
         if correct_ss_verify {
+            log::info!("Accumulate y_vec points.");
             let (head, tail) = y_vec.split_at(1);
             let y = tail.iter().fold(head[0].clone(), |acc, x| acc + x);
+            log::info!("y=sum(y_vec) is:\n{:#?}", y);
 
+            log::info!("Accumulate secret_shares_vec");
             let x_i = secret_shares_vec
                 .iter()
                 .fold(Scalar::<Secp256k1>::zero(), |acc, x| acc + x);
+            log::info!("x_i=sum(secret_shares_vec) is:\n{}", x_i.to_bigint().to_hex());
+
+            log::info!("生成针对 x_i 的椭圆曲线零知识证明dlog_proof。");
             let dlog_proof = DLogProof::prove(&x_i);
+            log::info!("dlog_proof is:\n{:#?}", dlog_proof);
+
+            log::info!("--^^-- Keys.phase2_verify_vss_construct_keypair_phase3_pok_dlog --^^--");
+            log::info!("returns: SharedKeys(y, x_i), dlog_proof");
             Ok((SharedKeys { y, x_i }, dlog_proof))
         } else {
             Err(err_type)
@@ -576,22 +736,30 @@ impl Keys {
     pub fn get_commitments_to_xi(
         vss_scheme_vec: &[VerifiableSS<Secp256k1>],
     ) -> Vec<Point<Secp256k1>> {
+        log::info!("--vv-- Keys.get_commitments_to_xi --vv--");
         let len = vss_scheme_vec.len();
         let (head, tail) = vss_scheme_vec.split_at(1);
         let mut global_coefficients = head[0].commitments.clone();
         for vss in tail {
+
             for (i, coefficient_commitment) in vss.commitments.iter().enumerate() {
                 global_coefficients[i] = &global_coefficients[i] + coefficient_commitment;
             }
         }
+        log::info!("For i add vssi(com0, com1,...) in vss_scheme_vec into vss0(com0, com1, ...)");
+        log::info!("vss0(head, also as global_vss) is:\n{:#?}", global_coefficients);
 
         let global_vss = VerifiableSS {
             parameters: vss_scheme_vec[0].parameters.clone(),
             commitments: global_coefficients,
         };
-        (1..=len)
+        log::info!("从i=1到i={}生成点多项式i^n*Pn+...+P1 in global_vss.commitments", len);
+        let ret = (1..=len)
             .map(|i| global_vss.get_point_commitment(i.try_into().unwrap()))
-            .collect::<Vec<Point<Secp256k1>>>()
+            .collect::<Vec<Point<Secp256k1>>>();
+        log::info!("ret is:\n{:#?}", ret);
+        log::info!("--^^-- Keys.get_commitments_to_xi --^^--");
+        ret
     }
 
     pub fn update_commitments_to_xi(
@@ -615,10 +783,16 @@ impl Keys {
         y_vec: &[Point<Secp256k1>],
         vss_vec: &[VerifiableSS<Secp256k1>],
     ) -> Result<(), ErrorType> {
+        log::info!("--vv-- Keys.verify_dlog_proofs_check_against_vss --vv--");
         let mut bad_actors_vec = Vec::new();
+
+        log::info!("check y_vec.len == dlog_proofs_vec.len == params.share_count = {}", usize::from(params.share_count));
         assert_eq!(y_vec.len(), usize::from(params.share_count));
         assert_eq!(dlog_proofs_vec.len(), usize::from(params.share_count));
+
         let xi_commitments = Keys::get_commitments_to_xi(vss_vec);
+
+        log::info!("loop to verify dlog_proofs_vec[i] for i in [0, {})", y_vec.len());
         let xi_dlog_verify = (0..y_vec.len())
             .map(|i| {
                 let ver_res = DLogProof::verify(&dlog_proofs_vec[i]).is_ok();
@@ -631,11 +805,13 @@ impl Keys {
                 }
             })
             .all(|x| x);
+        log::info!("verify result is {}", xi_dlog_verify);
 
         let err_type = ErrorType {
             error_type: "bad dlog proof".to_string(),
             bad_actors: bad_actors_vec,
         };
+        log::info!("--^^-- Keys.verify_dlog_proofs_check_against_vss --^^--");
 
         if xi_dlog_verify {
             Ok(())
