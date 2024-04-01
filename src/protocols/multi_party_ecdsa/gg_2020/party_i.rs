@@ -30,7 +30,6 @@ use curv::cryptographic_primitives::secret_sharing::feldman_vss::VerifiableSS;
 use curv::elliptic::curves::{secp256_k1::Secp256k1, Curve, Point, Scalar};
 use curv::BigInt;
 use sha2::Sha256;
-use round_based::containers::BroadcastMsgs;
 
 use crate::Error::{self, InvalidSig, Phase5BadSum, Phase6Error};
 use paillier::{
@@ -80,34 +79,22 @@ pub struct Keys<E: Curve = Secp256k1> {
 impl fmt::Display for Keys {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, 
-r#"u_i:
-    {}
+r#"u_i:{}
 y_i:
-    x:
-        {}
-    y:
-        {}
+    x:{}
+    y:{}
 dk:
-    p:
-        {}
-    q:
-        {}
+    p:{}
+    q:{}
 ek:
-    n:
-        {}
-    nn:
-        {}
+    n:{}
+    nn:{}
 party_index:{},
-N_tilde:
-    {}
-h1:
-    {}
-h2:
-    {}
-xhi:
-    {}
-xhi_inv:
-    {}"#, 
+N_tilde:{}
+h1:{}
+h2:{}
+xhi:{}
+xhi_inv:{}"#, 
         self.u_i.to_bigint().to_hex(), 
         self.y_i.x_coord().unwrap().to_hex(), 
         self.y_i.y_coord().unwrap().to_hex(),
@@ -129,6 +116,12 @@ pub struct PartyPrivate {
     u_i: Scalar<Secp256k1>,
     x_i: Scalar<Secp256k1>,
     dk: DecryptionKey,
+}
+
+impl fmt::Display for PartyPrivate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "u_i:{}\nx_i:{}\ndk:\n\tp:{}\n\tq:{}", self.u_i.to_bigint().to_hex(), self.x_i.to_bigint().to_hex(), self.dk.p.to_hex(), self.dk.q.to_hex())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -171,31 +164,21 @@ impl fmt::Display for KeyGenBroadcastMessage1 {
         }
         write!(f, 
 r#"e(EncryptionKey):
-    n:
-        {}
-    nn:
-        {}
+    n:{}
+    nn:{}
 dlog_statement(DLogStatement):
-    N:
-        {}
-    g:
-        {}
-    ni:
-        {}
-com:
-    {}
+    N:{}
+    g:{}
+    ni:{}
+com:{}
 correct_key_proof(NiCorrectKeyProof):
     {}
 composite_dlog_proof_base_h1(CompositeDLogProof):
-    x:
-        {}
-    y:
-        {}
+    x:{}
+    y:{}
 composite_dlog_proof_base_h2(CompositeDLogProof):
-    x:
-        {}
-    y:
-        {}"#, 
+    x:{}
+    y:{}"#, 
         self.e.n.to_hex(),
         self.e.nn.to_hex(),
         self.dlog_statement.N.to_hex(),
@@ -220,13 +203,10 @@ pub struct KeyGenDecommitMessage1 {
 impl fmt::Display for KeyGenDecommitMessage1 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, 
-r#"blind_factor:
-    {}
+r#"blind_factor:{}
 y_i(Point<Secp256k1>):
-    x:
-        {}
-    y:
-        {}"#,
+    x:{}
+    y:{}"#,
         self.blind_factor.to_hex(),
         self.y_i.x_coord().unwrap().to_hex(),
         self.y_i.y_coord().unwrap().to_hex())
@@ -243,12 +223,9 @@ impl fmt::Display for SharedKeys {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, 
 r#"y(Point<Secp256k1>):
-    x:
-        {}
-    y:
-        {}
-x_i(Scalar<Secp256k1>):
-    {}"#,
+    x:{}
+    y:{}
+x_i(Scalar<Secp256k1>):{}"#,
         self.y.x_coord().unwrap().to_hex(),
         self.y.y_coord().unwrap().to_hex(),
         self.x_i.to_bigint().to_hex())
@@ -267,22 +244,15 @@ pub struct SignKeys {
 impl fmt::Display for SignKeys {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, 
-r#"w_i(Scalar<Secp256k1>):
-    {}
+r#"w_i(Scalar<Secp256k1>):{}
 g_w_i(Point<Secp256k1>):
-    x:
-        {}
-    y:
-        {}
-k_i(Scalar<Secp256k1>):
-    {}
-gamma_i(Scalar<Secp256k1>):
-    {}
+    x:{}
+    y:{}
+k_i(Scalar<Secp256k1>):{}
+gamma_i(Scalar<Secp256k1>):{}
 g_gamma_i(Point<Secp256k1>):
-    x:
-        {}
-    y:
-        {}"#,
+    x:{}
+    y:{}"#,
         self.w_i.to_bigint().to_hex(),
         self.g_w_i.x_coord().unwrap().to_hex(),
         self.g_w_i.y_coord().unwrap().to_hex(),
@@ -298,10 +268,22 @@ pub struct SignBroadcastPhase1 {
     pub com: BigInt,
 }
 
+impl fmt::Display for SignBroadcastPhase1 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.com.to_hex())
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignDecommitPhase1 {
     pub blind_factor: BigInt,
     pub g_gamma_i: Point<Secp256k1>,
+}
+
+impl fmt::Display for SignDecommitPhase1 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "blind_factor:{}\ng_gamma_i:\n\tx:{}\n\ty:{}", self.blind_factor.to_hex(), self.g_gamma_i.x_coord().unwrap().to_hex(), self.g_gamma_i.y_coord().unwrap().to_hex())
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -313,11 +295,27 @@ pub struct LocalSignature {
     pub y: Point<Secp256k1>,
 }
 
+impl fmt::Display for LocalSignature {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, r#"r:{}
+R:\n\tx:{}\n\ty:{}
+s_i:{}\nm:{}\n
+y:\n\tx:{}\n\ty:{}"#, self.r.to_bigint().to_hex(), self.R.x_coord().unwrap().to_hex(), self.R.y_coord().unwrap().to_hex(),
+            self.s_i.to_bigint().to_hex(), self.m.to_hex(), self.y.x_coord().unwrap().to_hex(), self.y.y_coord().unwrap().to_hex())
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SignatureRecid {
     pub r: Scalar<Secp256k1>,
     pub s: Scalar<Secp256k1>,
     pub recid: u8,
+}
+
+impl fmt::Display for SignatureRecid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "r:{}\ns:{}\nrecid:{}", self.r.to_bigint().to_hex(), self.s.to_bigint().to_hex(), self.recid)
+    }
 }
 
 pub fn generate_h1_h2_N_tilde() -> (BigInt, BigInt, BigInt, BigInt, BigInt) {
@@ -932,18 +930,40 @@ impl SignKeys {
         index: usize,
         s: &[usize],
     ) -> Self {
+        log::info!("--vv--SignKeys.create--vv--");
+        log::info!("args private_x_i:\n{}", private_x_i.to_bigint().to_hex());
+        log::info!("args vss_scheme:\n{:#?}", vss_scheme);
+        log::info!("args index={}", index);
+        log::info!("args s={:#?}", s);
+
         let s: Vec<u16> = s.iter().map(|&i| i.try_into().unwrap()).collect();
+        log::info!("compute lambda_{{index,S}}, a lagrangian coefficient that change the (t,n) scheme to (|S|,|S|), used in http://stevengoldfeder.com/papers/GG18.pdf, also Evaluates lagrange basis polynomial.");
+        log::info!("map_share_to_new_params, input:vss_scheme.parameters(not used), index={}, s={:#?}", index, s);
         let li = VerifiableSS::<Secp256k1>::map_share_to_new_params(
             &vss_scheme.parameters,
             index.try_into().unwrap(),
             s.as_slice(),
         );
+        log::info!("map_share_to_new_params, return li:Scalar:\n{}", li.to_bigint().to_hex());
+
         let w_i = li * private_x_i;
+        log::info!("w_i = li * private_x_i:\n{}", w_i.to_bigint().to_hex());
+
         let g = Point::generator();
         let g_w_i = g * &w_i;
+        log::info!("g_w_i = w_i*G,G is generator:\nx:\n\t{}\ny:\n\t{}", g_w_i.x_coord().unwrap().to_hex(), g_w_i.y_coord().unwrap().to_hex());
+
         let gamma_i = Scalar::<Secp256k1>::random();
+        log::info!("gamma_i is a random scalar:\n{}", gamma_i.to_bigint().to_hex());
+
         let g_gamma_i = g * &gamma_i;
+        log::info!("g_gamma_i = gamma_i*G,G is generator:\nx:\n\t{}\ny:\n\t{}", g_gamma_i.x_coord().unwrap().to_hex(), g_gamma_i.y_coord().unwrap().to_hex());
+
         let k_i = Scalar::<Secp256k1>::random();
+        log::info!("k_i is a random scalar:\n{}", k_i.to_bigint().to_hex());
+
+        log::info!("--^^--SignKeys.create, returns w_i, g_w_i, k_i, gamma_i, g_gamma_i.--^^--");
+
         Self {
             w_i,
             g_w_i,
@@ -954,14 +974,22 @@ impl SignKeys {
     }
 
     pub fn phase1_broadcast(&self) -> (SignBroadcastPhase1, SignDecommitPhase1) {
+        log::info!("--vv--SignKeys.phase1_broadcast--vv--");
+
         let blind_factor = BigInt::sample(SECURITY);
+        log::info!("blind_factor is a random number of 256bits:\n{}", blind_factor.to_hex());
+
         let g = Point::generator();
         let g_gamma_i = g * &self.gamma_i;
+        log::info!("g_gamma_i = self.gamma_i*G,G is generator:\nx:\n\t{}\ny:\n\t{}", g_gamma_i.x_coord().unwrap().to_hex(), g_gamma_i.y_coord().unwrap().to_hex());
+
         let com = HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
             &BigInt::from_bytes(g_gamma_i.to_bytes(true).as_ref()),
             &blind_factor,
         );
+        log::info!("com=h(g_gamma_i-compressed | blind_factor):\n{}", com.to_hex());
 
+        log::info!("--^^--SignKeys.phase1_broadcast, returns SignBroadcastPhase1 {{ com }}, SignDecommitPhase1 {{blind_factor, g_gamma_i}}--^^--");
         (
             SignBroadcastPhase1 { com },
             SignDecommitPhase1 {

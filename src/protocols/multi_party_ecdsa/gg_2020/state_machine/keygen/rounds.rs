@@ -366,10 +366,8 @@ impl fmt::Display for LocalKey<Secp256k1> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, 
 r#"paillier_dk:
-    p:
-        {}
-    q:
-        {}
+    p:{}
+    q:{}
 pk_vec:
     {:#?}
 keys_linear:
@@ -377,10 +375,8 @@ keys_linear:
 paillier_key_vec:
     {:#?}
 y_sum_s:
-    x:
-        {}
-    y:
-        {}
+    x:{}
+    y:{}
 h1_h2_n_tilde_vec:
     {:#?}
 vss_scheme:

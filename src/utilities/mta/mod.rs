@@ -14,8 +14,11 @@
     @license GPL-3.0+ <https://github.com/KZen-networks/multi-party-ecdsa/blob/master/LICENSE>
 */
 
+use core::fmt;
+
 /// MtA is described in https://eprint.iacr.org/2019/114.pdf section 3
 use curv::arithmetic::traits::Samplable;
+use curv::arithmetic::Converter;
 use curv::cryptographic_primitives::proofs::sigma_dlog::DLogProof;
 use curv::elliptic::curves::{secp256_k1::Secp256k1, Point, Scalar};
 use curv::BigInt;
@@ -37,12 +40,53 @@ pub struct MessageA {
     pub range_proofs: Vec<AliceProof>, // proofs (using other parties' h1,h2,N_tilde) that the plaintext is small
 }
 
+impl fmt::Display for MessageA {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let mut ret = String::new();
+        for x in self.range_proofs.iter(){
+            ret.push_str(format!(r#"{},
+        "#, x).as_str());
+        }
+        write!(f, "c:{}\nrange_proofs:\n{}", self.c.to_hex(), ret)
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MessageB {
     pub c: BigInt, // paillier encryption
     pub b_proof: DLogProof<Secp256k1, Sha256>,
     pub beta_tag_proof: DLogProof<Secp256k1, Sha256>,
 }
+
+impl fmt::Display for MessageB {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, r#"c:{}
+b_proof:
+    pk(Point<E>):
+        x:{}
+        y:{}
+    pk_t_rand_commitment(Point<E>):
+        x:{}
+        y:{}
+    challenge_response(Scalar<E>):
+        {}
+    hash_choice:{:#?};
+beta_tag_proof:
+    pk(Point<E>):
+        x:{}
+        y:{}
+    pk_t_rand_commitment(Point<E>):
+        x:{}
+        y:{}
+    challenge_response(Scalar<E>):
+        {}
+    hash_choice:{:#?};"#, 
+        self.c.to_hex(), 
+        self.b_proof.pk.x_coord().unwrap().to_hex(), self.b_proof.pk.y_coord().unwrap().to_hex(), self.b_proof.pk_t_rand_commitment.x_coord().unwrap().to_hex(), self.b_proof.pk_t_rand_commitment.y_coord().unwrap().to_hex(), self.b_proof.challenge_response.to_bigint().to_hex(), self.b_proof.hash_choice,
+        self.beta_tag_proof.pk.x_coord().unwrap().to_hex(), self.beta_tag_proof.pk.y_coord().unwrap().to_hex(), self.beta_tag_proof.pk_t_rand_commitment.x_coord().unwrap().to_hex(), self.beta_tag_proof.pk_t_rand_commitment.y_coord().unwrap().to_hex(), self.beta_tag_proof.challenge_response.to_bigint().to_hex(), self.beta_tag_proof.hash_choice)
+    }
+}
+
 
 impl MessageA {
     /// Creates a new `messageA` using Alice's Paillier encryption key and `dlog_statements`
@@ -54,8 +98,18 @@ impl MessageA {
         alice_ek: &EncryptionKey,
         dlog_statements: &[DLogStatement],
     ) -> (Self, BigInt) {
+        log::info!("--vv--MessageA.a(create)--vv--");
+        log::info!("inputs:\na(Scalar<Secp256k1>):{}\nalice_ek(EncryptionKey):\n\tn:{}\n\tnn:{}\ndlog_statements([DLogStatement]):\n{:#?}", a.to_bigint().to_hex(), alice_ek.n.to_hex(), alice_ek.nn.to_hex(), dlog_statements);
+        log::info!("Creates a new `messageA` using Alice's Paillier encryption key and `dlog_statements`");
+
         let randomness = BigInt::sample_below(&alice_ek.n);
+        log::info!("Chose a randomness below ek.n:\n{}", randomness.to_hex());
+
         let m_a = MessageA::a_with_predefined_randomness(a, alice_ek, &randomness, dlog_statements);
+
+        log::info!("--^^--MessageA.a(create)--^^--");
+        log::info!("returns:\nm_a:\n{}\nrandomness:{}", m_a, randomness.to_hex());
+        
         (m_a, randomness)
     }
 
@@ -65,6 +119,10 @@ impl MessageA {
         randomness: &BigInt,
         dlog_statements: &[DLogStatement],
     ) -> Self {
+        log::info!("--vv--MessageA.a_with_predefined_randomness--vv--");
+        log::info!("input:\na:{}\nalice_ek:\n\tn:{}\n\tnn:{}\nrandomness:{}\ndlog_statements:\n{:#?}", a.to_bigint().to_hex(), alice_ek.n.to_hex(), alice_ek.nn.to_hex(), randomness.to_hex(), dlog_statements);
+
+        // TODO:guy 需要实现 Paillier::encrypt_with_chosen_randomness
         let c_a = Paillier::encrypt_with_chosen_randomness(
             alice_ek,
             RawPlaintext::from(a.to_bigint()),
@@ -73,12 +131,18 @@ impl MessageA {
         .0
         .clone()
         .into_owned();
+        log::info!("use random r and key alice_ek to paillier ecnrypt a(sign_keys.k_i), result c_a is:\n{}", c_a.to_hex());
+        
         let alice_range_proofs = dlog_statements
             .iter()
             .map(|dlog_statement| {
                 AliceProof::generate(&a.to_bigint(), &c_a, alice_ek, dlog_statement, randomness)
             })
             .collect::<Vec<AliceProof>>();
+        log::info!("contruct alice_range_proofs with a(sign_keys.k_i), c_a, alice_ek, random r, and every dlog_statement. alice_range_proofs is:\n{:#?}", alice_range_proofs);
+
+        log::info!("--^^--MessageA.a_with_predefined_randomness--^^--");
+        log::info!("returns MessageA:\nc_a:{}\nalice_range_proofs:\n{:#?}", c_a.to_hex(), alice_range_proofs);
 
         Self {
             c: c_a,

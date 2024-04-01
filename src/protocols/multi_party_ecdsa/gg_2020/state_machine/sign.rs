@@ -76,15 +76,19 @@ impl OfflineStage {
     ///
     /// Returns error if given arguments are contradicting.
     pub fn new(i: u16, s_l: Vec<u16>, local_key: LocalKey<Secp256k1>) -> Result<Self> {
+        log::info!("--vv--OfflineStage.new begin create new offlineStage, i={}, s_l={:#?}, local_key={}--vv--", i, s_l, local_key);
         if s_l.len() < 2 {
+            log::error!("ERROR:{}",Error::TooFewParties);
             return Err(Error::TooFewParties);
         }
         if i == 0 || usize::from(i) > s_l.len() {
+            log::error!("ERROR:{}",Error::InvalidPartyIndex);
             return Err(Error::InvalidPartyIndex);
         }
 
         let keygen_n = local_key.n;
         if s_l.iter().any(|&i| i == 0 || i > keygen_n) {
+            log::error!("ERROR:{}",Error::InvalidSl);
             return Err(Error::InvalidSl);
         }
         {
@@ -95,11 +99,13 @@ impl OfflineStage {
             s_l_sorted_deduped.dedup();
 
             if s_l_sorted != s_l_sorted_deduped {
+                log::error!("ERROR:{}",Error::InvalidSl);
                 return Err(Error::InvalidSl);
             }
         }
 
         let n = u16::try_from(s_l.len()).map_err(|_| Error::TooManyParties { n: s_l.len() })?;
+        log::info!("n={}", n);
 
         Ok(Self {
             round: OfflineR::R0(Round0 { i, s_l, local_key }),
@@ -134,6 +140,7 @@ impl OfflineStage {
         let next_state: OfflineR;
         let try_again: bool = match replace(&mut self.round, OfflineR::Gone) {
             OfflineR::R0(round) if !round.is_expensive() || may_block => {
+                log::info!("begin to proceed round 0");
                 next_state = round
                     .proceed(&mut self.msgs_queue)
                     .map(OfflineR::R1)
@@ -478,6 +485,12 @@ enum OfflineR {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct OfflineProtocolMessage(OfflineM);
 
+impl core::fmt::Display for OfflineProtocolMessage {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", self.0)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[allow(clippy::large_enum_variant)]
 enum OfflineM {
@@ -489,7 +502,36 @@ enum OfflineM {
     M6((SI, HEGProof)),
 }
 
+impl core::fmt::Display for OfflineM {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            OfflineM::M1((m, s)) => write!(f, "MessageA:\n{}\nSignBroadcastPhase1:\n{}", m, s),
+            OfflineM::M2((g, w)) => write!(f, "GammaI:\n{}\nWI:\n{}", g, w),
+            OfflineM::M3((d, t, tp)) => write!(f, "DeltaI:{}\nTI:{}\nTIProof:{}", d, t, tp),
+            OfflineM::M4(s) => write!(f, "{}", s),
+            OfflineM::M5((r, v)) => {
+                let mut ret = String::new();
+                for (i, x) in v.iter().enumerate(){
+                    ret.push_str(format!("index-{}:\n\t{}\n", i, x).as_str());
+                }
+                write!(f, "RDash:{}\nVec<PDLwSlackProof>:\n\t{}\n", r, ret.trim_end())
+            },
+            OfflineM::M6((s, h)) => write!(f, "SI:{}\nHEGProof:{}", s, h),
+        }
+    }
+}
+
 struct MsgQueue(Vec<Msg<OfflineProtocolMessage>>);
+
+impl core::fmt::Display for MsgQueue {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let mut ret = String::new();
+        for (i, x) in self.0.iter().enumerate(){
+            ret.push_str(format!("index-{}:\n\tsender:{}\n\treceiver:{}\n\tbody:\n\t\t{},\n", i, x.sender, x.receiver.unwrap_or_else(| | 0), x.body).as_str());
+        }
+        write!(f, "{}", ret.trim_end())
+    }
+}
 
 macro_rules! make_pushable {
     ($($constructor:ident $t:ty),*$(,)?) => {

@@ -46,7 +46,7 @@ async fn run(args:Cli) -> Result<()>{
     let _logger = Logger::try_with_str("info, my::critical::module=trace")?
     .log_to_file(FileSpec::default()
         .directory("logs")
-        .basename("debug")
+        .basename("keygen")
         .discriminant("dgg20"))
     .print_message()
     .write_mode(WriteMode::Direct)

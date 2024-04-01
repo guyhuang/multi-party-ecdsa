@@ -15,6 +15,7 @@ use round_based::Msg;
 
 mod gg20_sm_client;
 use gg20_sm_client::join_computation;
+use flexi_logger::{FileSpec, Logger, WriteMode};
 
 #[derive(Debug, StructOpt)]
 struct Cli {
@@ -34,11 +35,29 @@ struct Cli {
 #[tokio::main]
 async fn main() -> Result<()> {
     let args: Cli = Cli::from_args();
+    run(args).await
+}
+
+async fn run(args:Cli) -> Result<()>{
+    let _logger = Logger::try_with_str("info, my::critical::module=trace")?
+    .log_to_file(FileSpec::default()
+        .directory("logs")
+        .basename("sign")
+        .discriminant("dgg20"))
+    .print_message()
+    .write_mode(WriteMode::Direct)
+    .format(flexi_logger::with_thread)
+    .start()?;
+    log::info!("####### Start a new signing ######");
+    log::info!("parties = {:#?}, data_to_sign = {}", args.parties, args.data_to_sign);
+
     let local_share = tokio::fs::read(args.local_share)
         .await
         .context("cannot read local share")?;
     let local_share = serde_json::from_slice(&local_share).context("parse local share")?;
+    log::info!("read localkey:\n{}", local_share);
     let number_of_parties = args.parties.len();
+    log::info!("number_of_parties={}", number_of_parties);
 
     let (i, incoming, outgoing) =
         join_computation(args.address.clone(), &format!("{}-offline", args.room))
@@ -87,4 +106,21 @@ async fn main() -> Result<()> {
     println!("{}", signature);
 
     Ok(())
+}
+
+#[cfg(test)]
+mod tests{
+    use super::*;
+    
+    #[actix_rt::test]
+    async fn sign_1(){
+        let args: Cli = Cli{
+            address : surf::Url::parse("http://localhost:8000/").unwrap(),
+            room : String::from("default-signing"),
+            local_share: String::from("local-share1.json").into(),
+            parties: Vec::<u16>::from([1u16, 2u16]),
+            data_to_sign:String::from("hello")
+        };
+        run(args).await.unwrap()
+    }
 }

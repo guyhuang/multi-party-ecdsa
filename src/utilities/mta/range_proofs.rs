@@ -19,6 +19,7 @@ use paillier::{EncryptionKey, Randomness};
 use zk_paillier::zkproofs::DLogStatement;
 
 use serde::{Deserialize, Serialize};
+use core::fmt;
 use std::borrow::Borrow;
 use zeroize::Zeroize;
 
@@ -33,6 +34,18 @@ struct AliceZkpRound1 {
     z: BigInt,
     u: BigInt,
     w: BigInt,
+}
+
+impl fmt::Display for AliceZkpRound1{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, r#"alpha:{}
+beta:{}
+gama:{}
+ro:{}
+z:{}
+u:{}
+w:{}"#, self.alpha.to_hex(), self.beta.to_hex(), self.gamma.to_hex(), self.ro.to_hex(), self.z.to_hex(), self.u.to_hex(), self.w.to_hex())
+    }
 }
 
 impl AliceZkpRound1 {
@@ -74,6 +87,14 @@ struct AliceZkpRound2 {
     s2: BigInt,
 }
 
+impl fmt::Display for AliceZkpRound2{
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, r#"s:{}
+s1:{}
+s2:{}"#, self.s.to_hex(), self.s1.to_hex(), self.s2.to_hex())
+    }
+}
+
 impl AliceZkpRound2 {
     fn from(
         alice_ek: &EncryptionKey,
@@ -98,6 +119,11 @@ pub struct AliceProof {
     s: BigInt,
     s1: BigInt,
     s2: BigInt,
+}
+impl fmt::Display for AliceProof {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "z:{}\ne:{}\ns:{}\ns1:{}\ns2:{}", self.z.to_hex(), self.e.to_hex(), self.s.to_hex(), self.s1.to_hex(), self.s2.to_hex())
+    }
 }
 
 impl AliceProof {
@@ -211,6 +237,25 @@ struct BobZkpRound1 {
     pub v: BigInt,
 }
 
+impl fmt::Display for BobZkpRound1 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, r#"alpha:{}
+beta:{}
+gamma:{}
+ro:{}
+ro_prim:{}
+sigma:{}
+tau:{}
+z:{}
+z_prim:{}
+t:{}
+w:{}
+v:{}"#, self.alpha.to_hex(), self.beta.to_hex(), self.gamma.to_hex(), self.ro.to_hex(),
+        self.ro_prim.to_hex(), self.sigma.to_hex(), self.tau.to_hex(), self.z.to_hex(), self.z_prim.to_hex(),
+        self.t.to_hex(), self.w.to_hex(), self.v.to_hex())
+    }
+}
+
 impl BobZkpRound1 {
     /// `b` - Bob's secret
     /// `beta_prim`  - randomly chosen in `MtA` by Bob
@@ -273,6 +318,12 @@ struct BobZkpRound2 {
     pub t2: BigInt,
 }
 
+impl fmt::Display for BobZkpRound2 {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "s:{}\ns1:{}\ns2:{}\nt1:{}\nt2:{}", self.s.to_hex(), self.s1.to_hex(), self.s2.to_hex(), self.t1.to_hex(), self.t2.to_hex())
+    }
+}
+
 impl BobZkpRound2 {
     /// `e` - the challenge in interactive ZKP, the hash in non-interactive ZKP
     /// `b` - Bob's secret
@@ -303,6 +354,18 @@ pub struct BobCheck {
     X: Point<Secp256k1>,
 }
 
+impl fmt::Display for BobCheck {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, r#"u:
+    x:{}
+    y:{}
+X:
+    x:{}
+    y:{}"#, self.u.x_coord().unwrap().to_hex(), self.u.y_coord().unwrap().to_hex(),
+            self.X.x_coord().unwrap().to_hex(), self.X.y_coord().unwrap().to_hex())
+    }
+}
+
 /// Bob's regular proof
 #[derive(Clone, PartialEq, Debug, Serialize, Deserialize)]
 pub struct BobProof {
@@ -314,6 +377,13 @@ pub struct BobProof {
     s2: BigInt,
     t1: BigInt,
     t2: BigInt,
+}
+
+impl fmt::Display for BobProof {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "t:{}\nz:{}\ne:{}\ns:{}\ns1:{}\ns2:{}\nt1:{}\nt2:{}", self.t.to_hex(), self.z.to_hex(), self.e.to_hex(), self.s.to_hex(),
+            self.s1.to_hex(), self.s2.to_hex(), self.t1.to_hex(), self.t2.to_hex())
+    }
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -492,6 +562,12 @@ impl BobProof {
 pub struct BobProofExt {
     proof: BobProof,
     u: Point<Secp256k1>,
+}
+
+impl fmt::Display for BobProofExt {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "proof(BobProof):\n\t{}\nu:\n\tx:{}\n\ty:{}", self.proof, self.u.x_coord().unwrap().to_hex(), self.u.y_coord().unwrap().to_hex())
+    }
 }
 
 #[allow(clippy::too_many_arguments)]

@@ -22,6 +22,8 @@
 //! witness (x, r) such that Q = xG, c = Enc(pk, x, r)
 //! note that because of the range proof, the proof has a slack in the range: x in [-q^3, q^3]
 
+use core::fmt;
+
 use curv::arithmetic::traits::*;
 use curv::cryptographic_primitives::hashing::{Digest, DigestExt};
 use curv::elliptic::curves::{secp256_k1::Secp256k1, Point, Scalar};
@@ -62,6 +64,22 @@ pub struct PDLwSlackProof {
     s1: BigInt,
     s2: BigInt,
     s3: BigInt,
+}
+
+impl fmt::Display for PDLwSlackProof {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, r#"z:{}
+u1:
+    x:{}
+    y:{}
+u2:{}
+u3:{}
+s1:{}
+s2:{}
+s3:{}"#, self.z.to_hex(), self.u1.x_coord().unwrap().to_hex(), 
+            self.u1.y_coord().unwrap().to_hex(), self.u2.to_hex(), self.u3.to_hex(), 
+            self.s1.to_hex(), self.s2.to_hex(), self.s3.to_hex())
+    }
 }
 
 impl PDLwSlackProof {

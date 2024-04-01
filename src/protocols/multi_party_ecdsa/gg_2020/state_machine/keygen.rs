@@ -55,12 +55,15 @@ impl Keygen {
     /// * `i` is not in range `[1; n]`, returns [Error::InvalidPartyIndex]
     pub fn new(i: u16, t: u16, n: u16) -> Result<Self> {
         if n < 2 {
+            log::error!("ERROR:{}",Error::TooFewParties);
             return Err(Error::TooFewParties);
         }
         if t == 0 || t >= n {
+            log::error!("ERROR:{}",Error::InvalidThreshold);
             return Err(Error::InvalidThreshold);
         }
         if i == 0 || i > n {
+            log::error!("ERROR:{}",Error::InvalidPartyIndex);
             return Err(Error::InvalidPartyIndex);
         }
         let mut state = Self {
