@@ -107,6 +107,7 @@ async fn run(args:Cli) -> Result<()>{
         .context("online stage failed")?;
     let signature = serde_json::to_string(&signature).context("serialize signature")?;
     println!("{}", signature);
+    outgoing.close().await?;
 
     Ok(())
 }

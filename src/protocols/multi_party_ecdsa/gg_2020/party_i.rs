@@ -1287,8 +1287,12 @@ impl LocalSignature {
     }
 
     pub fn output_signature(&self, s_vec: &[Scalar<Secp256k1>]) -> Result<SignatureRecid, Error> {
+        log::info!("--vv--output sign begin--vv--");
+        log::info!("args s_vec:\n{:#?}", s_vec);
+
         let mut s = s_vec.iter().fold(self.s_i.clone(), |acc, x| acc + x);
         let s_bn = s.to_bigint();
+        log::info!("accumulate s in s_vec, s:\n{}", s_bn.to_hex());
 
         let r = Scalar::<Secp256k1>::from(
             &self
@@ -1297,11 +1301,13 @@ impl LocalSignature {
                 .unwrap()
                 .mod_floor(Scalar::<Secp256k1>::group_order()),
         );
+        log::info!("r_x:{}", r.to_bigint().to_hex());
         let ry: BigInt = self
             .R
             .y_coord()
             .unwrap()
             .mod_floor(Scalar::<Secp256k1>::group_order());
+        log::info!("r_y:{}", ry.to_hex());
 
         /*
          Calculate recovery id - it is not possible to compute the public key out of the signature
@@ -1316,6 +1322,8 @@ impl LocalSignature {
             s = Scalar::<Secp256k1>::from(&s_tag_bn);
             recid ^= 1;
         }
+        log::info!("recid:{}", recid);
+        
         let sig = SignatureRecid { r, s, recid };
         let ver = verify(&sig, &self.y, &self.m).is_ok();
         if ver {
