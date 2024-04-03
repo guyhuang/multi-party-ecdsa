@@ -88,6 +88,8 @@ async fn run(args:Cli) -> Result<()>{
         BigInt::from_bytes(args.data_to_sign.as_bytes()),
         completed_offline_stage,
     )?;
+    log::info!("signing:\n{:#?}", signing);
+    log::info!("partial_signature(will be sent):\n{:#?}", partial_signature);
 
     outgoing
         .send(Msg {
@@ -97,11 +99,16 @@ async fn run(args:Cli) -> Result<()>{
         })
         .await?;
 
+    tokio::pin!(incoming);
+    tokio::pin!(outgoing);
+    
     let partial_signatures: Vec<_> = incoming
         .take(number_of_parties - 1)
         .map_ok(|msg| msg.body)
         .try_collect()
         .await?;
+    log::info!("partial_signature(received):\n{:#?}", partial_signatures);
+
     let signature = signing
         .complete(&partial_signatures)
         .context("online stage failed")?;

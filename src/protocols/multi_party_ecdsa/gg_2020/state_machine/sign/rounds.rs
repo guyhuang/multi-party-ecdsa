@@ -1222,7 +1222,7 @@ impl fmt::Display for PartialSignature {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Round7 {
     local_signature: LocalSignature,
 }

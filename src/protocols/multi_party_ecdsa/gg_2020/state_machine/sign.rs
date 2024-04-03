@@ -663,7 +663,7 @@ impl IsCritical for Error {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SignManual {
     state: Round7,
 }

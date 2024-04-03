@@ -12,6 +12,7 @@ use rocket::response::stream::{stream, Event, EventStream};
 use rocket::serde::json::Json;
 use rocket::State;
 use serde::{Deserialize, Serialize};
+use flexi_logger::{FileSpec, Logger, WriteMode};
 use tokio::sync::{Notify, RwLock};
 
 #[rocket::get("/rooms/<room_id>/subscribe")]
@@ -23,6 +24,7 @@ async fn subscribe(
 ) -> EventStream<impl Stream<Item = Event>> {
     let room = db.get_room_or_create_empty(room_id).await;
     let mut subscription = room.subscribe(last_seen_msg.0);
+    log::info!("/rooms/{}/subscribe", room_id);
     EventStream::from(stream! {
         loop {
             let (id, msg) = tokio::select! {
@@ -40,12 +42,14 @@ async fn subscribe(
 async fn issue_idx(db: &State<Db>, room_id: &str) -> Json<IssuedUniqueIdx> {
     let room = db.get_room_or_create_empty(room_id).await;
     let idx = room.issue_unique_idx();
+    log::info!("/rooms/{}/issue_unique_idx, idx={}", room_id, idx);
     Json::from(IssuedUniqueIdx { unique_idx: idx })
 }
 
 #[rocket::post("/rooms/<room_id>/broadcast", data = "<message>")]
 async fn broadcast(db: &State<Db>, room_id: &str, message: String) -> Status {
     let room = db.get_room_or_create_empty(room_id).await;
+    log::info!("/rooms/{}/broadcast, data={}", room_id, message.as_str());
     room.publish(message).await;
     Status::Ok
 }
@@ -76,6 +80,8 @@ impl Db {
                 return room.clone();
             }
         }
+        
+        log::info!("No one in rooms, drop it and recreate one.");
         drop(rooms);
 
         let mut rooms = self.rooms.write().await;
@@ -103,6 +109,7 @@ impl Room {
 
     pub async fn publish(self: &Arc<Self>, message: String) {
         let mut messages = self.messages.write().await;
+        log::info!("publish a message = {}", message.as_str());
         messages.push(message);
         self.message_appeared.notify_waiters();
     }
@@ -180,6 +187,17 @@ struct IssuedUniqueIdx {
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
+    let _logger = Logger::try_with_str("info, my::critical::module=trace")?
+    .log_to_file(FileSpec::default()
+        .directory("logs")
+        .basename("sm-mng")
+        .discriminant("dgg20"))
+    .log_to_stdout()
+    .print_message()
+    .write_mode(WriteMode::Direct)
+    .format(flexi_logger::with_thread)
+    .start()?;
+
     let figment = rocket::Config::figment().merge((
         "limits",
         rocket::data::Limits::new().limit("string", 100.megabytes()),

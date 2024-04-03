@@ -1271,12 +1271,14 @@ impl LocalSignature {
         pubkey: &Point<Secp256k1>,
     ) -> Self {
         let m_fe = Scalar::<Secp256k1>::from(message);
+        log::info!("Message is:\n{:#?}", m_fe);
         let r = Scalar::<Secp256k1>::from(
             &R.x_coord()
                 .unwrap()
                 .mod_floor(Scalar::<Secp256k1>::group_order()),
         );
         let s_i = m_fe * k_i + &r * sigma_i;
+        log::info!("s_i is:\n{:#?}", s_i);
         Self {
             r,
             R: R.clone(),
@@ -1289,10 +1291,11 @@ impl LocalSignature {
     pub fn output_signature(&self, s_vec: &[Scalar<Secp256k1>]) -> Result<SignatureRecid, Error> {
         log::info!("--vv--output sign begin--vv--");
         log::info!("args s_vec:\n{:#?}", s_vec);
+        log::info!("self s:\n{:#?}", self.s_i);
 
         let mut s = s_vec.iter().fold(self.s_i.clone(), |acc, x| acc + x);
         let s_bn = s.to_bigint();
-        log::info!("accumulate s in s_vec, s:\n{}", s_bn.to_hex());
+        log::info!("accumulate s in s_vec, s:\n{:#?}", s);
 
         let r = Scalar::<Secp256k1>::from(
             &self
@@ -1301,7 +1304,7 @@ impl LocalSignature {
                 .unwrap()
                 .mod_floor(Scalar::<Secp256k1>::group_order()),
         );
-        log::info!("r_x:{}", r.to_bigint().to_hex());
+        log::info!("r_x:{:#?}", r);
         let ry: BigInt = self
             .R
             .y_coord()
@@ -1323,9 +1326,12 @@ impl LocalSignature {
             recid ^= 1;
         }
         log::info!("recid:{}", recid);
-        
+
         let sig = SignatureRecid { r, s, recid };
+        log::info!("sig is:\n{:#?}", sig);
         let ver = verify(&sig, &self.y, &self.m).is_ok();
+        
+        log::info!("--^^--output sign finished, verify is {}--^^--", ver);
         if ver {
             Ok(sig)
         } else {
@@ -1337,6 +1343,7 @@ impl LocalSignature {
 pub fn verify(sig: &SignatureRecid, y: &Point<Secp256k1>, message: &BigInt) -> Result<(), Error> {
     let b = sig.s.invert().unwrap();
     let a = Scalar::<Secp256k1>::from(message);
+    log::info!("Message is:\n{:#?}", a);
     let u1 = a * &b;
     let u2 = &sig.r * &b;
 
@@ -1345,13 +1352,15 @@ pub fn verify(sig: &SignatureRecid, y: &Point<Secp256k1>, message: &BigInt) -> R
     let yu2 = y * &u2;
     // can be faster using shamir trick
 
-    if sig.r
-        == Scalar::<Secp256k1>::from(
-            &(gu1 + yu2)
-                .x_coord()
-                .unwrap()
-                .mod_floor(Scalar::<Secp256k1>::group_order()),
-        )
+    let sig_to_verify = Scalar::<Secp256k1>::from(
+        &(gu1 + yu2)
+            .x_coord()
+            .unwrap()
+            .mod_floor(Scalar::<Secp256k1>::group_order()),
+    );
+    log::info!("Sig to verify is:\n{:#?}", sig_to_verify);
+
+    if sig.r ==  sig_to_verify
     {
         Ok(())
     } else {
