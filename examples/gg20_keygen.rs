@@ -2,6 +2,7 @@ use anyhow::{anyhow, Context, Result};
 use futures::StreamExt;
 use std::path::PathBuf;
 use structopt::StructOpt;
+use std::fs;
 
 use multi_party_ecdsa::protocols::multi_party_ecdsa::gg_2020::state_machine::keygen::Keygen;
 use round_based::async_runtime::AsyncProtocol;
@@ -54,10 +55,12 @@ async fn run(args:Cli) -> Result<()>{
     .start()?;
     log::info!("#######Start a new keygen######");
     log::info!("i = {}, t = {}, n = {}", args.index, args.threshold, args.number_of_parties);
+
+    fs::remove_file(args.output.clone()).ok();
     let mut output_file = tokio::fs::OpenOptions::new()
         .write(true)
         .truncate(true)
-        //.create_new(true)
+        .create_new(true)
         .open(args.output)
         .await
         .context("cannot create output file")?;

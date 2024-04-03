@@ -65,7 +65,7 @@ impl fmt::Display for Parameters {
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Keys<E: Curve = Secp256k1> {
     pub u_i: Scalar<E>, // random scalar ui
-    pub y_i: Point<E>, // Point on curve Ui = ui*G
+    pub Y_i: Point<E>, // Point on curve Ui = ui*G
     pub dk: DecryptionKey, // Paillier DecryptionKey p & q
     pub ek: EncryptionKey, // Paillier EncryptionKey n=p*q & N=n*n
     pub party_index: usize,
@@ -96,8 +96,8 @@ h2:{}
 xhi:{}
 xhi_inv:{}"#, 
         self.u_i.to_bigint().to_hex(), 
-        self.y_i.x_coord().unwrap().to_hex(), 
-        self.y_i.y_coord().unwrap().to_hex(),
+        self.Y_i.x_coord().unwrap().to_hex(), 
+        self.Y_i.y_coord().unwrap().to_hex(),
         self.dk.p.to_hex(),
         self.dk.q.to_hex(),
         self.ek.n.to_hex(),
@@ -197,37 +197,37 @@ composite_dlog_proof_base_h2(CompositeDLogProof):
 pub struct KeyGenDecommitMessage1 { 
     pub blind_factor: BigInt, // 随机因子
     /// Ui = u1*G
-    pub y_i: Point<Secp256k1>, 
+    pub Y_i: Point<Secp256k1>, 
 }
 
 impl fmt::Display for KeyGenDecommitMessage1 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, 
 r#"blind_factor:{}
-y_i(Point<Secp256k1>):
+Y_i(Point<Secp256k1>):
     x:{}
     y:{}"#,
         self.blind_factor.to_hex(),
-        self.y_i.x_coord().unwrap().to_hex(),
-        self.y_i.y_coord().unwrap().to_hex())
+        self.Y_i.x_coord().unwrap().to_hex(),
+        self.Y_i.y_coord().unwrap().to_hex())
     }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SharedKeys {
-    pub y: Point<Secp256k1>,
+    pub Y: Point<Secp256k1>,
     pub x_i: Scalar<Secp256k1>,
 }
 
 impl fmt::Display for SharedKeys {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, 
-r#"y(Point<Secp256k1>):
+r#"Y(Point<Secp256k1>):
     x:{}
     y:{}
 x_i(Scalar<Secp256k1>):{}"#,
-        self.y.x_coord().unwrap().to_hex(),
-        self.y.y_coord().unwrap().to_hex(),
+        self.Y.x_coord().unwrap().to_hex(),
+        self.Y.y_coord().unwrap().to_hex(),
         self.x_i.to_bigint().to_hex())
     }
 }
@@ -298,9 +298,14 @@ pub struct LocalSignature {
 impl fmt::Display for LocalSignature {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, r#"r:{}
-R:\n\tx:{}\n\ty:{}
-s_i:{}\nm:{}\n
-y:\n\tx:{}\n\ty:{}"#, self.r.to_bigint().to_hex(), self.R.x_coord().unwrap().to_hex(), self.R.y_coord().unwrap().to_hex(),
+R:
+    x:{}
+    y:{}
+s_i:{}
+m:{}
+y:
+    x:{}
+    y:{}"#, self.r.to_bigint().to_hex(), self.R.x_coord().unwrap().to_hex(), self.R.y_coord().unwrap().to_hex(),
             self.s_i.to_bigint().to_hex(), self.m.to_hex(), self.y.x_coord().unwrap().to_hex(), self.y.y_coord().unwrap().to_hex())
     }
 }
@@ -321,21 +326,21 @@ impl fmt::Display for SignatureRecid {
 pub fn generate_h1_h2_N_tilde() -> (BigInt, BigInt, BigInt, BigInt, BigInt) {
     // note, should be safe primes:
     // let (ek_tilde, dk_tilde) = Paillier::keypair_safe_primes().keys();;
-    log::info!("-vv- generate_h1_h2_N_tilde -vv-");
+    //log::info!("-vv- generate_h1_h2_N_tilde -vv-");
 
     let (ek_tilde, dk_tilde) = Paillier::keypair().keys();
-    log::info!("create a new Paillier keypair ek_tilde(n, nn) and dk_tilde(p, q):");
-    log::info!("ek_tilde is:\nn:\n{}\nnn:\n{}", ek_tilde.n.to_hex(), ek_tilde.nn.to_hex());
-    log::info!("dk_tilde is:\np:\n{}\nq:\n{}", dk_tilde.p.to_hex(), dk_tilde.q.to_hex());
+    //log::info!("create a new Paillier keypair ek_tilde(n, nn) and dk_tilde(p, q):");
+    //log::info!("ek_tilde is:\nn:\n{}\nnn:\n{}", ek_tilde.n.to_hex(), ek_tilde.nn.to_hex());
+    //log::info!("dk_tilde is:\np:\n{}\nq:\n{}", dk_tilde.p.to_hex(), dk_tilde.q.to_hex());
 
     let one = BigInt::one();
-    log::info!("one is:\n{}", one.to_hex());
+    //log::info!("one is:\n{}", one.to_hex());
 
     let phi = (&dk_tilde.p - &one) * (&dk_tilde.q - &one);
-    log::info!("phi(=(dk_tilde.p-1)*(dk_tilde.q-1)) is:\n{}", phi.to_hex());
+    //log::info!("phi(=(dk_tilde.p-1)*(dk_tilde.q-1)) is:\n{}", phi.to_hex());
 
     let h1 = BigInt::sample_below(&ek_tilde.n);
-    log::info!("h1(sample below ek_tilde.n) is:\n{}", h1.to_hex());
+    //log::info!("h1(sample below ek_tilde.n) is:\n{}", h1.to_hex());
 
     let (mut xhi, mut xhi_inv) = loop {
         let xhi_ = BigInt::sample_below(&phi);
@@ -344,21 +349,21 @@ pub fn generate_h1_h2_N_tilde() -> (BigInt, BigInt, BigInt, BigInt, BigInt) {
             None => continue,
         }
     };
-    log::info!("random sample xhi_ below phi, ensure xhi_inv exists.");
-    log::info!("xhi(sample below phi) is:\n{}", xhi.to_hex());
-    log::info!("xhi_inv(where xhi_inv*xhi = 1 mod phi) is:\n{}", xhi_inv.to_hex());
+    //log::info!("random sample xhi_ below phi, ensure xhi_inv exists.");
+    //log::info!("xhi(sample below phi) is:\n{}", xhi.to_hex());
+    //log::info!("xhi_inv(where xhi_inv*xhi = 1 mod phi) is:\n{}", xhi_inv.to_hex());
 
     let h2 = BigInt::mod_pow(&h1, &xhi, &ek_tilde.n);
-    log::info!("h2(=h1^xhi mod ek_tilde.n) is:\n{}", h2.to_hex());
+    //log::info!("h2(=h1^xhi mod ek_tilde.n) is:\n{}", h2.to_hex());
 
     xhi = BigInt::sub(&phi, &xhi);
-    log::info!("xhi'(=phi - xhi) is:\n{}", xhi.to_hex());
+    //log::info!("xhi'(=phi - xhi) is:\n{}", xhi.to_hex());
 
     xhi_inv = BigInt::sub(&phi, &xhi_inv);
-    log::info!("xhi_inv'(phi - xhi_inv) is:\n{}", xhi_inv.to_hex());
+    //log::info!("xhi_inv'(phi - xhi_inv) is:\n{}", xhi_inv.to_hex());
 
-    log::info!("-^^- generate_h1_h2_N_tilde -^^-");
-    log::info!("-^^- returns (ek_tilde.n, h1, h2, xhi, xhi_inv) -^^-");
+    //log::info!("-^^- generate_h1_h2_N_tilde -^^-");
+    //log::info!("-^^- returns (ek_tilde.n, h1, h2, xhi, xhi_inv) -^^-");
     (ek_tilde.n, h1, h2, xhi, xhi_inv)
 }
 
@@ -369,14 +374,14 @@ impl Keys {
         let u = Scalar::<Secp256k1>::random(); // 文档u1
         log::info!("u(random scalar) is:\n{:#?}\n", u);
 
-        let y = Point::generator() * &u; // 文档U1
-        log::info!("y(=u*G, point on curve) is:\n{:#?}\n", y);
+        let Y = Point::generator() * &u; // 文档U1
+        log::info!("Y(=u*G, point on curve) is:\n\tx:{}\n\ty:{}", Y.x_coord().unwrap().to_hex(), Y.y_coord().unwrap().to_hex());
 
         let (ek, dk) = Paillier::keypair().keys();
         log::info!("Paillier keypair:random sample 1024 bits prime p & q, ek.n=p*q, ek.nn=ek.n*ek.n:");
         log::info!("ek(Paillier keypair EncryptionKey) is:");
-        log::info!("\tek-n is:\n{:#?}\n", ek.n.to_hex());
-        log::info!("\tek-nn is:\n{:#?}\n", ek.n.to_hex()); // 文档N1
+        log::info!("\tek-n is:\n{:#?}\n", ek.n.to_hex()); //文档n
+        log::info!("\tek-nn is:\n{:#?}\n", ek.nn.to_hex()); // 文档n^2
         
         log::info!("dk(Paillier keypair decryptionKey) is:");
         log::info!("\tdk-p is:\n{:#?}\n", dk.p.to_hex()); // 文档p1
@@ -394,7 +399,7 @@ impl Keys {
         log::info!("-^^- returns (u_i=u, y_i=y, dk, ek, party_index, N_tilde, h1, h2, xhi, xhi_inv) -^^-");
         Self {
             u_i: u,
-            y_i: y,
+            Y_i: Y,
             dk,
             ek,
             party_index: index,
@@ -416,7 +421,7 @@ impl Keys {
 
         Self {
             u_i: u,
-            y_i: y,
+            Y_i: y,
             dk,
             ek,
             party_index: index,
@@ -434,7 +439,7 @@ impl Keys {
 
         Self {
             u_i: u,
-            y_i: y,
+            Y_i: y,
             dk,
             ek,
             party_index: index,
@@ -456,25 +461,25 @@ impl Keys {
 
         let correct_key_proof = NiCorrectKeyProof::proof(&self.dk, None);
         log::info!("correct_key_proof is:\n\t{}", Display_NiCorrectKeyProof(&correct_key_proof));
-        log::info!("This protocol is based on the NIZK protocol in https://eprint.iacr.org/2018/057.pdf, for parameters = e = N, m2 = 11, alpha = 6370 see https://eprint.iacr.org/2018/987.pdf 6.2.3 for full details.");
+        //log::info!("This protocol is based on the NIZK protocol in https://eprint.iacr.org/2018/057.pdf, for parameters = e = N, m2 = 11, alpha = 6370 see https://eprint.iacr.org/2018/987.pdf 6.2.3 for full details.");
 
         let dlog_statement_base_h1 = DLogStatement {
             N: self.N_tilde.clone(),
             g: self.h1.clone(),
             ni: self.h2.clone(),
         };
-        log::info!("dlog_statement_base_h1.N(=N_tilde) is:\n{}", dlog_statement_base_h1.N.to_hex());
-        log::info!("dlog_statement_base_h1.g(=h1) is:\n{}", dlog_statement_base_h1.g.to_hex());
-        log::info!("dlog_statement_base_h1.ni(=h2) is:\n{}", dlog_statement_base_h1.ni.to_hex());
+        // log::info!("dlog_statement_base_h1.N(=N_tilde) is:\n{}", dlog_statement_base_h1.N.to_hex());
+        // log::info!("dlog_statement_base_h1.g(=h1) is:\n{}", dlog_statement_base_h1.g.to_hex());
+        // log::info!("dlog_statement_base_h1.ni(=h2) is:\n{}", dlog_statement_base_h1.ni.to_hex());
 
         let dlog_statement_base_h2 = DLogStatement {
             N: self.N_tilde.clone(),
             g: self.h2.clone(),
             ni: self.h1.clone(),
         };
-        log::info!("dlog_statement_base_h2.N(=N_tilde) is:\n{}", dlog_statement_base_h2.N.to_hex());
-        log::info!("dlog_statement_base_h2.g(=h2) is:\n{}", dlog_statement_base_h2.g.to_hex());
-        log::info!("dlog_statement_base_h2.ni(=h1) is:\n{}", dlog_statement_base_h2.ni.to_hex());
+        // log::info!("dlog_statement_base_h2.N(=N_tilde) is:\n{}", dlog_statement_base_h2.N.to_hex());
+        // log::info!("dlog_statement_base_h2.g(=h2) is:\n{}", dlog_statement_base_h2.g.to_hex());
+        // log::info!("dlog_statement_base_h2.ni(=h1) is:\n{}", dlog_statement_base_h2.ni.to_hex());
 
         let composite_dlog_proof_base_h1 =
             CompositeDLogProof::prove(&dlog_statement_base_h1, &self.xhi);
@@ -489,7 +494,7 @@ impl Keys {
         log::info!("composite_dlog_proof_base_h2.y is:\n{}", composite_dlog_proof_base_h2.y.to_hex());
 
         let com = HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
-            &BigInt::from_bytes(self.y_i.to_bytes(true).as_ref()),
+            &BigInt::from_bytes(self.Y_i.to_bytes(true).as_ref()),
             &blind_factor,
         );
         log::info!("com(=hash of (y_i(compressed) | blind_factor)) is:\n{}", com.to_hex());
@@ -517,7 +522,7 @@ impl Keys {
 
         let decom1 = KeyGenDecommitMessage1 {
             blind_factor,
-            y_i: self.y_i.clone(),
+            Y_i: self.Y_i.clone(),
         };
         log::info!("decom1:\n{}", decom1);
 
@@ -561,7 +566,7 @@ impl Keys {
                 };
                 log::info!("dlog_statement_base_h2(bc1_vec[i]) is:\n\tN:\n{}\n\tg:\n{}\n\tni:\n{}", dlog_statement_base_h2.N.to_hex(), dlog_statement_base_h2.g.to_hex(), dlog_statement_base_h2.ni.to_hex());
                 let hash1 = HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
-                    &BigInt::from_bytes(&decom_vec[i].y_i.to_bytes(true)),
+                    &BigInt::from_bytes(&decom_vec[i].Y_i.to_bytes(true)),
                     &decom_vec[i].blind_factor,
                 );
                 log::info!("Sha256 of (decom_vec[i].y_i || decom_vec[i].blind_factor) is:\n{}", hash1.to_hex());
@@ -648,13 +653,13 @@ impl Keys {
             bad_actors: bad_actors_vec,
         };
 
-        //guy TODO: 需要底层实现
+        //guy TODO: 需要底层实现，secret_shares 包括多项式pi(x) = ui + a1x + a1^2x + ...,令x=1，2，3，计算得到pi(1),pi(2),pi(3)，计算方为1时，发送p1(2)给2，发送p1(3)给3
         let (vss_scheme, secret_shares) =
             VerifiableSS::share(params.threshold, params.share_count, &self.u_i);
         log::info!("VerifiableSS::share, input t={}, n={}, secret(u)={}", params.threshold, params.share_count, self.u_i.to_bigint().to_hex());
         log::info!("vss_scheme is:\n{:#?}", vss_scheme);
-        log::info!("secret_shares is:\n{:#?}", secret_shares);
-
+        log::info!("secret_shares is:\n{:#?}", secret_shares.to_vec());
+        
         log::info!("-^^- Keys::phase1_verify_com_phase3_verify_correct_key_verify_dlog_phase2_distribute -^^-");
         log::info!("returns vss_scheme, secret_shares, party_index");
         if correct_key_correct_decom_all {
@@ -725,7 +730,7 @@ impl Keys {
 
             log::info!("--^^-- Keys.phase2_verify_vss_construct_keypair_phase3_pok_dlog --^^--");
             log::info!("returns: SharedKeys(y, x_i), dlog_proof");
-            Ok((SharedKeys { y, x_i }, dlog_proof))
+            Ok((SharedKeys { Y: y, x_i }, dlog_proof))
         } else {
             Err(err_type)
         }
@@ -846,7 +851,7 @@ impl PartyPrivate {
 
         Keys {
             u_i: u,
-            y_i: y,
+            Y_i: y,
             dk,
             ek,
             party_index: index,
@@ -868,7 +873,7 @@ impl PartyPrivate {
 
         Keys {
             u_i: u,
-            y_i: y,
+            Y_i: y,
             dk,
             ek,
             party_index: index,
@@ -937,7 +942,7 @@ impl SignKeys {
         log::info!("args s={:#?}", s);
 
         let s: Vec<u16> = s.iter().map(|&i| i.try_into().unwrap()).collect();
-        log::info!("compute lambda_{{index,S}}, a lagrangian coefficient that change the (t,n) scheme to (|S|,|S|), used in http://stevengoldfeder.com/papers/GG18.pdf, also Evaluates lagrange basis polynomial.");
+        //log::info!("compute lambda_{{index,S}}, a lagrangian coefficient that change the (t,n) scheme to (|S|,|S|), used in http://stevengoldfeder.com/papers/GG18.pdf, also Evaluates lagrange basis polynomial.");
         log::info!("map_share_to_new_params, input:vss_scheme.parameters(not used), index={}, s={:#?}", index, s);
         let li = VerifiableSS::<Secp256k1>::map_share_to_new_params(
             &vss_scheme.parameters,
@@ -979,9 +984,9 @@ impl SignKeys {
         let blind_factor = BigInt::sample(SECURITY);
         log::info!("blind_factor is a random number of 256bits:\n{}", blind_factor.to_hex());
 
-        let g = Point::generator();
-        let g_gamma_i = g * &self.gamma_i;
-        log::info!("g_gamma_i = self.gamma_i*G,G is generator:\nx:\n\t{}\ny:\n\t{}", g_gamma_i.x_coord().unwrap().to_hex(), g_gamma_i.y_coord().unwrap().to_hex());
+        //let g = Point::generator();
+        let g_gamma_i = self.g_gamma_i.clone();// 这里，使用已经计算的结果 g * &self.gamma_i;
+        //log::info!("g_gamma_i = self.gamma_i*G,G is generator:\nx:\n\t{}\ny:\n\t{}", g_gamma_i.x_coord().unwrap().to_hex(), g_gamma_i.y_coord().unwrap().to_hex());
 
         let com = HashCommitment::<Sha256>::create_commitment_with_user_defined_randomness(
             &BigInt::from_bytes(g_gamma_i.to_bytes(true).as_ref()),

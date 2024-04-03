@@ -79,12 +79,13 @@ impl Round1 { // 文档Step2
         O: Push<Msg<gg_2020::party_i::KeyGenDecommitMessage1>>,
     {
         log::info!("====Round 1 start=====");
+        log::info!("input(BroadcastMsgs<KeyGenBroadcastMessage1>):{:#?}", input);
         output.push(Msg {
             sender: self.party_i,
             receiver: None,
             body: self.decom1.clone(),
         });
-        log::info!("input before insert bc1:\n{:#?}", input);
+        //log::info!("input before insert bc1:\n{:#?}", input);
         log::info!("====Round 1 over, output decom1=====");
         Ok(Round2 {
             keys: self.keys,
@@ -105,7 +106,7 @@ impl Round1 { // 文档Step2
     }
 }
 
-pub struct Round2 { // 文档Step3、4
+pub struct Round2 { // 文档Step3、4（发送P）
     keys: gg_2020::party_i::Keys,
     received_comm: Vec<KeyGenBroadcastMessage1>,
     decom: KeyGenDecommitMessage1,
@@ -141,13 +142,14 @@ impl Round2 {
                 &self.received_comm,
             )
             .map_err(ProceedError::Round2VerifyCommitments)?;
-        
-        log::info!("Loop for vss_result.secret_shares, output ones which is not mine.");
+        log::info!("vss_result is:\n{:#?}", vss_result);
+        log::info!("Loop for vss_result.secret_shares, send secret share to others encrypted.");
         for (i, share) in vss_result.1.iter().enumerate() {
             if i + 1 == usize::from(self.party_i) {
                 continue;
             }
-            log::info!("output vss_result.vss_scheme and vss_result.secret_shares index(from 1 count)={}, self index={}", i+1, self.party_i);
+            log::info!("output vss_result.vss_scheme and vss_result.secret_shares index={}, self index={}", i+1, self.party_i);
+            log::info!("Send vss_result:\nShamirSecretSharing:\n\t{:#?}\nshare:\n\t{:#?}", vss_result.0, share);
             output.push(Msg {
                 sender: self.party_i,
                 receiver: Some(i as u16 + 1),
@@ -160,7 +162,7 @@ impl Round2 {
         Ok(Round3 {
             keys: self.keys,
 
-            y_vec: received_decom.into_iter().map(|d| d.y_i).collect(),
+            y_vec: received_decom.into_iter().map(|d| d.Y_i).collect(),
             bc_vec: self.received_comm,
 
             own_vss: vss_result.0.clone(),
@@ -180,14 +182,14 @@ impl Round2 {
     }
 }
 
-pub struct Round3 { // 文档Step5\6\7\8?
+pub struct Round3 { // 文档Step4(计算Ai，发送Ai)，Step5，计算共享密钥，Step10-2（计算xi的零知识证明）
     keys: gg_2020::party_i::Keys,
 
-    y_vec: Vec<Point<Secp256k1>>,
+    y_vec: Vec<Point<Secp256k1>>, // Y point in received_decom
     bc_vec: Vec<gg_2020::party_i::KeyGenBroadcastMessage1>,
 
     own_vss: VerifiableSS<Secp256k1>,
-    own_share: Scalar<Secp256k1>,
+    own_share: Scalar<Secp256k1>, // Pi(i)
 
     party_i: u16,
     t: u16,
@@ -204,6 +206,7 @@ impl Round3 {
         O: Push<Msg<DLogProof<Secp256k1, Sha256>>>,
     {
         log::info!("====Round 3 start=====");
+        log::info!("input(P2PMsgs<(VerifiableSS<Secp256k1>):\n{:#?}", input);
         let params = gg_2020::party_i::Parameters {
             threshold: self.t,
             share_count: self.n,
@@ -212,7 +215,9 @@ impl Round3 {
             .into_vec_including_me((self.own_vss, self.own_share))
             .into_iter()
             .unzip();
-        log::info!("input vss_schemes(len={}) and party_shares(len={})", vss_schemes.len(), party_shares.len());
+        log::info!("After insert mine, input vss_schemes(len={}) and party_shares(len={})", vss_schemes.len(), party_shares.len());
+        log::info!("vss_schemes:\n{:#?}", vss_schemes);
+        log::info!("party_shares:\n{:#?}", party_shares);
 
         let (shared_keys, dlog_proof) = self
             .keys
@@ -224,7 +229,8 @@ impl Round3 {
                 self.party_i.into(),
             )
             .map_err(ProceedError::Round3VerifyVssConstruct)?;
-
+        log::info!("shared_keys:\n{:#?}", shared_keys);
+        log::info!("dlog_proof:\n{:#?}", dlog_proof);
         log::info!("output dlog_proof");
         output.push(Msg {
             sender: self.party_i,
@@ -258,7 +264,7 @@ impl Round3 {
     }
 }
 
-pub struct Round4 { // 文档 Step9、10、11?
+pub struct Round4 { // 文档Step9（接受分片公钥Xi），提取Ni，Step3，累加打开承诺中的U计算公共公钥PK
     keys: gg_2020::party_i::Keys,
     y_vec: Vec<Point<Secp256k1>>,
     bc_vec: Vec<gg_2020::party_i::KeyGenBroadcastMessage1>,
@@ -277,6 +283,7 @@ impl Round4 {
         input: BroadcastMsgs<DLogProof<Secp256k1, Sha256>>,
     ) -> Result<LocalKey<Secp256k1>> {
         log::info!("====Round 4 start=====");
+        log::info!("input is:\n{:#?}", input);
         let params = gg_2020::party_i::Parameters {
             threshold: self.t,
             share_count: self.n,
@@ -313,10 +320,10 @@ impl Round4 {
             .collect::<Vec<DLogStatement>>();
         log::info!("h1_h2_n_tilde_vec is:\n{:#?}", h1_h2_n_tilde_vec);
 
-        log::info!("accumulate yi in y_vec, len = {}", self.y_vec.len());
+        log::info!("accumulate Y in y_vec, len = {}", self.y_vec.len());
         let (head, tail) = self.y_vec.split_at(1);
         let y_sum = tail.iter().fold(head[0].clone(), |acc, x| acc + x);
-        log::info!("y_sum is:\n{:#?}", y_sum);
+        log::info!("Y_sum is:\n{:#?}", y_sum);
 
         let local_key = LocalKey {
             paillier_dk: self.keys.dk,
@@ -370,7 +377,7 @@ r#"paillier_dk:
     q:{}
 pk_vec:
     {:#?}
-keys_linear:
+keys_linear(gg_2020::party_i::SharedKeys):
     {}
 paillier_key_vec:
     {:#?}

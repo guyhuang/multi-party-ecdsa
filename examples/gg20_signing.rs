@@ -30,6 +30,8 @@ struct Cli {
     parties: Vec<u16>,
     #[structopt(short, long)]
     data_to_sign: String,
+    #[structopt(short, long)]
+    index:u16,
 }
 
 #[tokio::main]
@@ -49,7 +51,7 @@ async fn run(args:Cli) -> Result<()>{
     .format(flexi_logger::with_thread)
     .start()?;
     log::info!("####### Start a new signing ######");
-    log::info!("parties = {:#?}, data_to_sign = {}", args.parties, args.data_to_sign);
+    log::info!("index = {}; parties = {:#?}, data_to_sign = {}", args.index, args.parties, args.data_to_sign);
 
     let local_share = tokio::fs::read(args.local_share)
         .await
@@ -69,6 +71,7 @@ async fn run(args:Cli) -> Result<()>{
     tokio::pin!(outgoing);
 
     let signing = OfflineStage::new(i, args.parties, local_share)?;
+    //let signing = OfflineStage::new(args.index, args.parties, local_share)?;
     let completed_offline_stage = AsyncProtocol::new(signing, incoming, outgoing)
         .run()
         .await
@@ -119,7 +122,8 @@ mod tests{
             room : String::from("default-signing"),
             local_share: String::from("local-share1.json").into(),
             parties: Vec::<u16>::from([1u16, 2u16]),
-            data_to_sign:String::from("hello")
+            data_to_sign:String::from("hello"),
+            index: 1u16
         };
         run(args).await.unwrap()
     }

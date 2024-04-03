@@ -76,7 +76,7 @@ impl OfflineStage {
     ///
     /// Returns error if given arguments are contradicting.
     pub fn new(i: u16, s_l: Vec<u16>, local_key: LocalKey<Secp256k1>) -> Result<Self> {
-        log::info!("--vv--OfflineStage.new begin create new offlineStage, i={}, s_l={:#?}, local_key={}--vv--", i, s_l, local_key);
+        log::info!("--vv--OfflineStage.new begin create new offlineStage, i={}, s_l={:#?}--vv--", i, s_l);
         if s_l.len() < 2 {
             log::error!("ERROR:{}",Error::TooFewParties);
             return Err(Error::TooFewParties);
@@ -140,7 +140,7 @@ impl OfflineStage {
         let next_state: OfflineR;
         let try_again: bool = match replace(&mut self.round, OfflineR::Gone) {
             OfflineR::R0(round) if !round.is_expensive() || may_block => {
-                log::info!("begin to proceed round 0");
+                //log::info!("begin to proceed round 0");
                 next_state = round
                     .proceed(&mut self.msgs_queue)
                     .map(OfflineR::R1)

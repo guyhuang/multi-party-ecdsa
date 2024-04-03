@@ -183,7 +183,7 @@ fn keygen_t_n_parties(
         .map(|bc1| bc1.dlog_statement.clone())
         .collect::<Vec<DLogStatement>>();
     let y_vec = (0..n)
-        .map(|i| decom_vec[i].y_i.clone())
+        .map(|i| decom_vec[i].Y_i.clone())
         .collect::<Vec<Point<Secp256k1>>>();
     let mut y_vec_iter = y_vec.iter();
     let head = y_vec_iter.next().unwrap();
@@ -759,7 +759,7 @@ fn test_serialize_deserialize() {
 
     let encoded = serde_json::to_string(&decommit).unwrap();
     let decoded: KeyGenDecommitMessage1 = serde_json::from_str(&encoded).unwrap();
-    assert_eq!(decommit.y_i, decoded.y_i);
+    assert_eq!(decommit.Y_i, decoded.Y_i);
 }
 #[test]
 fn test_small_paillier() {
