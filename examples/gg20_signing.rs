@@ -65,6 +65,7 @@ async fn run(args:Cli) -> Result<()>{
         join_computation(args.address.clone(), &format!("{}-offline", args.room))
             .await
             .context("join offline computation")?;
+    log::info!("Join computation, i={}", i);
 
     let incoming = incoming.fuse();
     tokio::pin!(incoming);
@@ -80,6 +81,7 @@ async fn run(args:Cli) -> Result<()>{
     let (_i, incoming, outgoing) = join_computation(args.address, &format!("{}-online", args.room))
         .await
         .context("join online computation")?;
+    log::info!("Join computation, _i={}", _i);
 
     tokio::pin!(incoming);
     tokio::pin!(outgoing);
@@ -93,7 +95,7 @@ async fn run(args:Cli) -> Result<()>{
 
     outgoing
         .send(Msg {
-            sender: i,
+            sender: _i,
             receiver: None,
             body: partial_signature,
         })
@@ -112,8 +114,9 @@ async fn run(args:Cli) -> Result<()>{
     let signature = signing
         .complete(&partial_signatures)
         .context("online stage failed")?;
-    let signature = serde_json::to_string(&signature).context("serialize signature")?;
-    println!("{}", signature);
+    // let signature = serde_json::to_string(&signature).context("serialize signature")?;
+    // println!("{}", signature);
+    println!("r:{}\ns:{}\nrecid:{}", signature.r.to_bigint().to_hex(), signature.s.to_bigint().to_hex(), signature.recid);
     outgoing.close().await?;
 
     Ok(())
