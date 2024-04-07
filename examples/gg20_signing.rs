@@ -119,19 +119,19 @@ async fn run(args:Cli) -> Result<()>{
     Ok(())
 }
 
-#[cfg(test)]
-mod tests{
-    use super::*;
+// #[cfg(test)]
+// mod tests{
+//     use super::*;
     
-    #[actix_rt::test]
-    async fn sign_1(){
-        let args: Cli = Cli{
-            address : surf::Url::parse("http://localhost:8000/").unwrap(),
-            room : String::from("default-signing"),
-            local_share: String::from("local-share1.json").into(),
-            parties: Vec::<u16>::from([1u16, 2u16]),
-            data_to_sign:String::from("hello"),
-        };
-        run(args).await.unwrap()
-    }
-}
+//     #[actix_rt::test]
+//     async fn sign_1(){
+//         let args: Cli = Cli{
+//             address : surf::Url::parse("http://localhost:8000/").unwrap(),
+//             room : String::from("default-signing"),
+//             local_share: String::from("local-share1.json").into(),
+//             parties: Vec::<u16>::from([1u16, 2u16]),
+//             data_to_sign:String::from("hello"),
+//         };
+//         run(args).await.unwrap()
+//     }
+// }

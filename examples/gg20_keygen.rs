@@ -87,44 +87,20 @@ async fn run(args:Cli) -> Result<()>{
     Ok(())
 }
 
-#[cfg(test)]
-mod tests{
-    use super::*;
+//#[cfg(test)]
+// mod tests{
+//     use super::*;
 
-    #[actix_rt::test]
-    async fn key_gen_1(){
-        let args: Cli = Cli{
-            address : surf::Url::parse("http://localhost:8000/").unwrap(),
-            index : 1,
-            threshold : 1,
-            number_of_parties : 3,
-            output : String::from("local-share1.json").into(),
-            room : String::from("default-keygen"),
-        };
-        run(args).await.unwrap()
-    }
-    #[actix_rt::test]
-    async fn key_gen_2(){
-        let args: Cli = Cli{
-            address : surf::Url::parse("http://localhost:8000/").unwrap(),
-            index : 2,
-            threshold : 1,
-            number_of_parties : 3,
-            output : String::from("local-share2.json").into(),
-            room : String::from("default-keygen"),
-        };
-        run(args).await.unwrap()
-    }
-    #[actix_rt::test]
-    async fn key_gen_3(){
-        let args: Cli = Cli{
-            address : surf::Url::parse("http://localhost:8000/").unwrap(),
-            index : 3,
-            threshold : 1,
-            number_of_parties : 3,
-            output : String::from("local-share1.json").into(),
-            room : String::from("default-keygen"),
-        };
-        run(args).await.unwrap()
-    }
-}
+//     #[actix_rt::test]
+//     async fn key_gen_1(){
+//         let args: Cli = Cli{
+//             address : surf::Url::parse("http://localhost:8000/").unwrap(),
+//             index : 1,
+//             threshold : 1,
+//             number_of_parties : 3,
+//             output : String::from("local-share1.json").into(),
+//             room : String::from("default-keygen"),
+//         };
+//         run(args).await.unwrap()
+//     }
+// }

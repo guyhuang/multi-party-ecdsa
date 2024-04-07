@@ -23,7 +23,10 @@ license = "GPL-3.0-or-later"
 categories = ["cryptography"]
 
 [lib]
-crate-type = ["lib"]
+# crate-type = ["lib"]
+# crate-type = ["dylib"]
+# crate-type = ["staticlib"]
+crate-type = ["rlib", "dylib"]
 
 [features]
 default = ["curv-kzen/num-bigint"]
@@ -74,44 +77,45 @@ secp256k1 = { version = "0.20", features = ["global-context"]}
 thiserror = "1.0.23"
 round-based = { version = "0.1.4", features = ["dev"] }
 
-[[example]]
-name = "gg18_sm_manager"
+# [[example]]
+# name = "gg18_sm_manager"
 
-[[example]]
-name = "gg18_sign_client"
+# [[example]]
+# name = "gg18_sign_client"
 
-[[example]]
-name = "gg18_keygen_client"
+# [[example]]
+# name = "gg18_keygen_client"
 
 [[example]]
 name = "common"
+# crate-type = ["rlib", "dylib"]
 crate-type = ["lib"]
 
-[[bench]]
-name = "cclst_keygen"
-path = "benches/two_party_ecdsa/cclst_2019/keygen.rs"
-required-features = ["cclst"]
-harness = false
+# [[bench]]
+# name = "cclst_keygen"
+# path = "benches/two_party_ecdsa/cclst_2019/keygen.rs"
+# required-features = ["cclst"]
+# harness = false
 
-[[bench]]
-name = "cclst_sign"
-path = "benches/two_party_ecdsa/cclst_2019/sign.rs"
-required-features = ["cclst"]
-harness = false
-
-
-[[bench]]
-name = "gg18"
-path = "benches/multi_party_ecdsa/gg18/keygen.rs"
-harness = false
-
-[[bench]]
-name = "lindel2017_keygen"
-path = "benches/two_party_ecdsa/lindell_2017/keygen.rs"
-harness = false
+# [[bench]]
+# name = "cclst_sign"
+# path = "benches/two_party_ecdsa/cclst_2019/sign.rs"
+# required-features = ["cclst"]
+# harness = false
 
 
-[[bench]]
-name = "lindel2017_sign"
-path = "benches/two_party_ecdsa/lindell_2017/sign.rs"
-harness = false
+# [[bench]]
+# name = "gg18"
+# path = "benches/multi_party_ecdsa/gg18/keygen.rs"
+# harness = false
+
+# [[bench]]
+# name = "lindel2017_keygen"
+# path = "benches/two_party_ecdsa/lindell_2017/keygen.rs"
+# harness = false
+
+
+# [[bench]]
+# name = "lindel2017_sign"
+# path = "benches/two_party_ecdsa/lindell_2017/sign.rs"
+# harness = false
